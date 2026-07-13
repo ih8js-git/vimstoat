@@ -5,6 +5,7 @@ edition = "2024"
 
 [dependencies]
 crossterm = "0.29.0"
+keyring-lib = { version = "1.0.3", features = ["tokio"] }
 ratatui = "0.30.2"
 stoat-rs = "0.2.5"
 tokio = "1.52.3"
