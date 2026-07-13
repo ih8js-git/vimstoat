@@ -22,19 +22,31 @@ pub fn render(f: &mut Frame, app: &App) {
                 .split(area);
 
             let explanation = Paragraph::new(
-                "We couldn't find your user_token. Please paste it below and press Enter to save it securely:",
-            )
-            .style(Style::default().fg(Color::Yellow));
+				"We couldn't find your user_token. Please paste it below and press Enter to save it securely:",
+			)
+			.style(Style::default().fg(Color::Yellow));
             f.render_widget(explanation, chunks[0]);
 
             let input_block = Paragraph::new(app.input_text.as_str())
                 .block(Block::default().title(" User Token ").borders(Borders::ALL));
             f.render_widget(input_block, chunks[1]);
         }
+        AppState::ValidatingToken => {
+            let msg = Paragraph::new("Validating token with Stoat API...")
+                .style(Style::default().fg(Color::Cyan))
+                .block(
+                    Block::default()
+                        .title(" Authenticating ")
+                        .borders(Borders::ALL),
+                );
+            f.render_widget(msg, area);
+        }
         AppState::LoggedIn => {
-            let success_msg =
-                Paragraph::new("Token found! You are logged in.\n\nPress 'q' to quit.")
-                    .block(Block::default().title(" VimStoat ").borders(Borders::ALL));
+            let success_msg = Paragraph::new(format!(
+                "Logged in as: {}\n\nPress 'q' to quit.",
+                app.username
+            ))
+            .block(Block::default().title(" VimStoat ").borders(Borders::ALL));
             f.render_widget(success_msg, area);
         }
         AppState::Error(err_msg) => {

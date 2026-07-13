@@ -1,8 +1,10 @@
+mod api;
 mod app;
-mod ui;
+mod state;
 
 use app::App;
 use ratatui::crossterm::event::{self, Event};
+use state::ui;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
