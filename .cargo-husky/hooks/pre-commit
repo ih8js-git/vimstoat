@@ -1,0 +1,4 @@
+#!/bin/sh
+echo "Auto-formatting Rust code..."
+cargo fmt
+git diff --name-only --cached | grep '\.rs$' | xargs -r git add
