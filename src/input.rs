@@ -65,7 +65,7 @@ impl InputState {
     /// Checks if the pending keys might lead to an action, else indicate input state should be cleared
     fn should_clear(&self) -> bool {
         let key_map = self.key_map();
-        key_map.iter().any(|(sequence, _)| {
+        !key_map.iter().any(|(sequence, _)| {
             self.pending_keys.len() < sequence.len()
                 && self.pending_keys == sequence[0..self.pending_keys.len()]
         })
@@ -81,7 +81,7 @@ impl InputState {
                 InputMode::Normal | InputMode::UI | InputMode::Visual => None,
                 InputMode::Insert | InputMode::Command => type_action(key_event),
             });
-        if actions.is_some() || !self.should_clear() {
+        if actions.is_some() || self.should_clear() {
             self.pending_keys.clear();
         }
         actions
