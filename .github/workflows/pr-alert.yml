@@ -1,0 +1,14 @@
+name: PR Alerts
+on:
+  pull_request:
+    types: [opened]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send to Stoat
+        run: |
+          curl -X POST -H "Content-Type: application/json" \
+          -d '{"content": "New PR opened: ${{ github.event.pull_request.title }}\n${{ github.event.pull_request.html_url }}"}' \
+          ${{ secrets.STOAT_WEBHOOK_URL }}
