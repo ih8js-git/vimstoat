@@ -1,0 +1,88 @@
+name: AUR Publisher
+
+run-name: AUR Publisher | ${{ github.event_name }} by ${{ github.actor }} on '${{ github.ref_name }}'
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+
+permissions:
+  contents: write
+
+jobs:
+  publish-aur:
+    name: Publishing to AUR
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - pkgname: vimstoat
+          - pkgname: vimstoat-git
+
+    steps:
+      - name: Setup SSH keys
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AUR_PRIVATE_KEY }}
+
+      - name: Add AUR host key
+        run: ssh-keyscan -H aur.archlinux.org >> ~/.ssh/known_hosts
+        shell: bash
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Extract Git Tag version
+        id: version_extract
+        run: echo "VERSION=$(echo ${{ github.ref_name }} | sed 's/^v//')" >> $GITHUB_OUTPUT
+        shell: bash
+
+      - name: Clone AUR Repository
+        run: |
+          git clone ssh://aur@aur.archlinux.org/"${{ matrix.pkgname }}".git
+
+          cd "${{ matrix.pkgname }}"
+
+          git config user.email "servoskull@omnissiah.mars"
+          git config user.name "Servo Skull"
+
+      - name: Update PKGBUILD
+        run: |
+          cd "${{ matrix.pkgname }}"
+
+          sed -i "s/^pkgver=.*/pkgver=${{ steps.version_extract.outputs.VERSION }}/" PKGBUILD
+
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+
+          sed -i "s/^sha256sums=.*/sha256sums=('SKIP')/" PKGBUILD
+
+          sed -i "s/^pkgname=.*/pkgname=${{ matrix.pkgname }}/" PKGBUILD
+
+      - name: Regenerate .SRCINFO
+        run: |
+          cd "${{ matrix.pkgname }}"
+          docker run --rm \
+            -v $(pwd):/app \
+            archlinux/archlinux:latest \
+            /bin/bash -c "\
+              pacman-key --init && \
+              pacman-key --populate archlinux && \
+              pacman -Syu --noconfirm base-devel && \
+              useradd -m builder && \
+              chown -R builder:builder /app && \
+              su - builder -c 'cd /app && makepkg --printsrcinfo > .SRCINFO'"
+        shell: bash
+
+      - name: AUR Repository Permissions
+        run: |
+          CURRENT_USER=$(whoami)
+          sudo chown -R $CURRENT_USER:$CURRENT_USER "${{ matrix.pkgname }}"/
+        shell: bash
+
+      - name: Commit and Push to AUR
+        run: |
+          cd "${{ matrix.pkgname }}"
+
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update ${{ matrix.pkgname }} to version ${{ steps.version_extract.outputs.VERSION }}" && git push || exit 0
