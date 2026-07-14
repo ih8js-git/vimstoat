@@ -4,12 +4,27 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+# Logger
+env_logger = "0.11.11"
+log = "0.4.33"
+
+# Error Handling
+anyhow = "1.0.103"
+thiserror = "2.0.18"
+
+# Embedded DB
+pickledb = { version = "0.5.1", features = ["bincode"] }
+
+# Directories
+dirs = "6.0.0"
+
 keyring-lib = { version = "1.0.3", features = ["tokio"] }
 ratatui = "0.30.2"
 stoat-rs = "0.2.5"
 tokio = { version = "1.52.3", features = ["full"] }
+serde = "1.0.228"
 
 [dev-dependencies]
 cargo-husky = { version = "1.5.0", default-features = false, features = [
-    "user-hooks",
+  "user-hooks",
 ] }
