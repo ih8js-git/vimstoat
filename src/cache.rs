@@ -7,10 +7,12 @@ use crate::{Result, error::CacheError};
 
 pub const DB_FILE: &str = "cache.db";
 
+#[allow(unused)]
 pub struct CacheStore {
     db: PickleDb,
 }
 
+#[allow(unused)]
 impl CacheStore {
     pub fn new() -> Result<Self> {
         let path = if let Some(mut p) = dirs::cache_dir() {
