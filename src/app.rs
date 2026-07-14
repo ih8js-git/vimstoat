@@ -1,6 +1,8 @@
 use keyring::KeyringEntry;
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
 
+use crate::{Result, cache::CacheStore};
+
 pub enum AppState {
     InputToken,
     LoggedIn,
@@ -12,10 +14,12 @@ pub struct App {
     pub input_text: String,
     pub token_entry: KeyringEntry,
     pub should_quit: bool,
+    #[allow(unused)]
+    pub db: CacheStore,
 }
 
 impl App {
-    pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
+    pub async fn new() -> Result<Self> {
         let crate_id = "vimstoat";
         let token_entry = KeyringEntry::try_new(crate_id)?;
 
@@ -25,18 +29,18 @@ impl App {
             AppState::LoggedIn
         };
 
+        let db = CacheStore::new()?;
+
         Ok(Self {
             state,
             input_text: String::new(),
             token_entry,
             should_quit: false,
+            db,
         })
     }
 
-    pub async fn handle_key_event(
-        &mut self,
-        key: KeyEvent,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         match self.state {
             AppState::InputToken => match key.code {
                 KeyCode::Enter => {

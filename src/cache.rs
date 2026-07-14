@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{fmt::Debug, path::PathBuf};
 
 use pickledb::PickleDb;
 use serde::{Serialize, de::DeserializeOwned};
@@ -10,6 +10,7 @@ pub const DB_FILE: &str = "cache.db";
 #[allow(unused)]
 pub struct CacheStore {
     db: PickleDb,
+    path: PathBuf,
 }
 
 #[allow(unused)]
@@ -29,19 +30,19 @@ impl CacheStore {
 
         let db = if path.exists() {
             PickleDb::load(
-                path,
+                &path,
                 pickledb::PickleDbDumpPolicy::AutoDump,
                 pickledb::SerializationMethod::Bin,
             )?
         } else {
             PickleDb::new(
-                path,
+                &path,
                 pickledb::PickleDbDumpPolicy::AutoDump,
                 pickledb::SerializationMethod::Bin,
             )
         };
 
-        Ok(Self { db })
+        Ok(Self { db, path })
     }
 
     pub fn set<K, V>(&mut self, key: K, value: &V) -> Result<()>
