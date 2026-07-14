@@ -12,7 +12,14 @@ pub type Result<T> = anyhow::Result<T>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open("vimstoat.log")
+        .expect("Failed to open log file");
+
     env_logger::builder()
+        .target(env_logger::Target::Pipe(Box::new(log_file)))
         .filter_level(log::LevelFilter::Debug)
         .init();
 
