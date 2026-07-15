@@ -36,22 +36,49 @@ impl Default for InputState {
             input_mode: InputMode::UI,
             pending_keys: Vec::with_capacity(2),
             key_maps: KeyMaps {
-                ui: [(
+                ui: HashMap::from([(
                     vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
                     Action::Quit,
-                )]
-                .into_iter()
-                .collect(),
+                )]),
                 normal: HashMap::new(),
                 visual: HashMap::new(),
-                typing: HashMap::new(),
+                typing: HashMap::from([
+                    (
+                        vec![KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)],
+                        Action::RemoveCharacter,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
+                        Action::Enter,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
+                        Action::CursorLeft,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
+                        Action::CursorRight,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
+                        Action::CursorUp,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
+                        Action::CursorDown,
+                    ),
+                    (
+                        vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
+                        Action::Escape,
+                    ),
+                ]),
             },
         }
     }
 }
 
 impl InputState {
-    /// Gets respective keymap based on iinput mode
+    /// Gets respective keymap based on input mode
     fn key_map(&self) -> &HashMap<Vec<KeyEvent>, Action> {
         match self.input_mode {
             InputMode::UI => &self.key_maps.ui,
@@ -74,31 +101,20 @@ impl InputState {
     pub fn process_key_event(&mut self, key_event: KeyEvent) -> Option<Action> {
         self.pending_keys.push(key_event);
         let key_map = self.key_map();
-        let actions = key_map
-            .get(&self.pending_keys)
-            .cloned()
-            .or_else(|| match self.input_mode {
-                InputMode::Normal | InputMode::UI | InputMode::Visual => None,
-                InputMode::Insert | InputMode::Command => type_action(key_event),
-            });
-        if actions.is_some() || !self.has_potential_pending_key_bindings() {
+
+        let action =
+            key_map
+                .get(&self.pending_keys)
+                .cloned()
+                .or(match (self.input_mode, key_event.code) {
+                    (InputMode::Insert | InputMode::Command, KeyCode::Char(c)) => {
+                        Some(Action::AppendCharacter(c))
+                    }
+                    _ => None,
+                });
+        if action.is_some() || !self.has_potential_pending_key_bindings() {
             self.pending_keys.clear();
         }
-        actions
-    }
-}
-
-/// Turn a key event to their respective action during typing
-fn type_action(key_event: KeyEvent) -> Option<Action> {
-    match key_event.code {
-        KeyCode::Char(c) => Some(Action::AppendCharacter(c)),
-        KeyCode::Backspace => Some(Action::RemoveCharacter),
-        KeyCode::Enter => Some(Action::Enter),
-        KeyCode::Left => Some(Action::CursorLeft),
-        KeyCode::Right => Some(Action::CursorRight),
-        KeyCode::Up => Some(Action::CursorUp),
-        KeyCode::Down => Some(Action::CursorDown),
-        KeyCode::Esc => Some(Action::Escape),
-        _ => None,
+        action
     }
 }
