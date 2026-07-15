@@ -4,20 +4,38 @@ mod cache;
 mod error;
 mod state;
 
+use std::{fs, path::PathBuf};
+
 use app::App;
 use ratatui::crossterm::event::{self, Event};
 use state::ui;
 
+pub const LOG_FILE: &str = "logs";
+
 pub type Result<T> = anyhow::Result<T>;
+
+fn create_log_file() -> Result<fs::File> {
+    let mut path = if let Some(mut p) = dirs::cache_dir() {
+        p.push(env!("CARGO_PKG_NAME"));
+        p
+    } else {
+        PathBuf::new()
+    };
+
+    fs::create_dir_all(&path)?;
+
+    path.push(LOG_FILE);
+
+    Ok(fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .expect("Failed to open log file"))
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
-    let log_file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open("vimstoat.log")
-        .expect("Failed to open log file");
-
+    let log_file = create_log_file()?;
     env_logger::builder()
         .target(env_logger::Target::Pipe(Box::new(log_file)))
         .filter_level(log::LevelFilter::Debug)
