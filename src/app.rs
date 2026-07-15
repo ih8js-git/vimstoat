@@ -20,7 +20,7 @@ pub struct App {
     pub should_quit: bool,
     pub input_state: InputState,
     #[allow(unused)]
-    pub db: CacheStore,
+    pub cache: CacheStore,
 }
 
 impl App {
@@ -41,7 +41,7 @@ impl App {
             AppState::InputToken
         };
 
-        let db = CacheStore::new()?;
+        let cache = CacheStore::new()?;
 
         Ok(Self {
             state,
@@ -49,7 +49,7 @@ impl App {
             auth,
             username,
             should_quit: false,
-            db,
+            cache,
             input_state: InputState::default(),
         })
     }

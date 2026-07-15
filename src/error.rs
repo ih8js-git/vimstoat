@@ -9,6 +9,12 @@ pub enum CacheError {
     DirNotFound(String),
 }
 
+#[derive(Error, Debug)]
+pub enum IdError {
+    #[error("Invalid size: expected 26, got {0}")]
+    InvalidSize(usize),
+}
+
 impl From<pickledb::error::Error> for CacheError {
     fn from(value: pickledb::error::Error) -> Self {
         CacheError::DbError(value)
