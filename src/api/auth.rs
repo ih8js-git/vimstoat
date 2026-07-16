@@ -33,8 +33,11 @@ impl Auth {
                 let err_msg = e.to_string();
                 if err_msg.contains("401") {
                     "Invalid token. Please check your session token and try again.".to_string()
-                } else {
+                } else if err_msg.contains("API GET request") {
                     err_msg
+                } else {
+                    "Could not connect to the server. Please check your internet connection."
+                        .to_string()
                 }
             })
     }
