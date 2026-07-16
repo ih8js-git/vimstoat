@@ -4,13 +4,12 @@ mod app;
 mod cache;
 mod error;
 mod input;
-mod state;
+mod ui;
 
 use std::{fs, path::PathBuf};
 
 use app::App;
 use ratatui::crossterm::event::{self, Event};
-use state::ui;
 
 pub const LOG_FILE: &str = "logs";
 

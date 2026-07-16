@@ -1,19 +1,6 @@
 use crate::api::client::{ApiClient, Endpoint};
 use keyring::KeyringEntry;
-use serde::Deserialize;
-
-#[derive(Deserialize)]
-pub struct UserInfo {
-    pub username: String,
-    pub display_name: Option<String>,
-}
-
-impl UserInfo {
-    /// Returns the display name if set, otherwise falls back to the username.
-    pub fn name(&self) -> &str {
-        self.display_name.as_deref().unwrap_or(&self.username)
-    }
-}
+use serde_json::Value;
 
 pub struct Auth {
     pub token_entry: KeyringEntry,
@@ -35,12 +22,13 @@ impl Auth {
         })
     }
 
-    pub async fn validate_token(&self, token: &str) -> Result<UserInfo, String> {
+    pub async fn validate_token(&self, token: &str) -> Result<ApiClient, String> {
         let client = ApiClient::new(token.to_string());
 
         client
-            .get::<UserInfo>(Endpoint::CurrentUser)
+            .get::<Value>(Endpoint::CurrentUser)
             .await
+            .map(|_| client)
             .map_err(|e| {
                 let err_msg = e.to_string();
                 if err_msg.contains("401") {
