@@ -147,7 +147,7 @@ mod tests {
         age: u8,
     }
 
-    fn setup_temporary_cache() -> CacheStore {
+    fn setup_temporary_cache() -> (CacheStore, TempDir) {
         let temp_dir = TempDir::new().expect("Failed to create a temporary directory");
         let path = temp_dir.path().join("test_cache.db");
 
@@ -157,7 +157,7 @@ mod tests {
             pickledb::SerializationMethod::Bin,
         );
 
-        CacheStore { db, path }
+        (CacheStore { db, path }, temp_dir)
     }
 
     #[test]
@@ -193,7 +193,7 @@ mod tests {
 
     #[test]
     fn test_cache_store_lifecycle() {
-        let mut store = setup_temporary_cache();
+        let (mut store, _temp_dir) = setup_temporary_cache();
 
         let raw_id = "01ARZ3NDEKTSV4RRFFQ69G5FAV";
         let id = Id::<MockUser>::new(raw_id).unwrap();
@@ -206,7 +206,7 @@ mod tests {
         assert!(store.get(id.clone()).is_none(), "Get should return None");
 
         let set_res = store.set(id.clone(), &user);
-        assert!(set_res.is_ok(), "Insertion failed");
+        assert!(set_res.is_ok(), "Insertion failed: {:?}", set_res);
 
         assert!(
             store.exists(id.clone()).unwrap(),
