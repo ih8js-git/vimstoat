@@ -18,11 +18,11 @@ jobs:
             echo "Error: Webhook URL secret is not set."
             exit 1
           fi
-          
+
           # Safely construct JSON payload
-          PAYLOAD=$(jq -n --arg content "New PR opened: $PR_TITLE\n$PR_URL" '{content: $content}')
-          
+          MSG="New PR opened: $PR_TITLE"$'\n'"$PR_URL"
+          PAYLOAD=$(jq -n --rawinput --arg content "$MSG" '{content: $content}')
+
           curl -X POST -H "Content-Type: application/json" \
           -d "$PAYLOAD" \
           "$STOAT_WEBHOOK_URL"
-
