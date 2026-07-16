@@ -36,7 +36,7 @@ impl App {
                     client = authenticated_client;
                     AppState::LoggedIn
                 }
-                Err(e) => AppState::Error(format!("Stored token is invalid: {}", e)),
+                Err(e) => AppState::Error(e),
             }
         } else {
             AppState::InputToken
