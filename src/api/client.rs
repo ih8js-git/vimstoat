@@ -5,6 +5,7 @@ use serde::de::DeserializeOwned;
 const BASE_URL: &str = "https://api.stoat.chat";
 
 #[derive(Debug)]
+#[allow(unused)]
 pub enum Endpoint {
     Config,
     CurrentUser,

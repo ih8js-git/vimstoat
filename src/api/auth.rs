@@ -1,4 +1,8 @@
-use crate::api::client::{ApiClient, Endpoint};
+use crate::{
+    Result,
+    api::client::{ApiClient, Endpoint},
+    error::AuthError,
+};
 use keyring::KeyringEntry;
 use serde_json::Value;
 
@@ -7,22 +11,20 @@ pub struct Auth {
 }
 
 impl Auth {
-    pub fn new() -> Result<Self, Box<dyn std::error::Error + Send + Sync>> {
+    pub fn new() -> Result<Self> {
         let crate_id = "vimstoat";
         let token_entry = KeyringEntry::try_new(crate_id)?;
         Ok(Self { token_entry })
     }
 
-    pub async fn store_token(&self, token: &str) -> Result<(), String> {
-        self.token_entry.set_secret(token).await.map_err(|e| {
-            format!(
-                "{}\n\nUnderlying Details:\n{:?}\n\n💡 Hint: If you are on a minimal Linux install, you likely need to install a Secret Service provider (e.g., `sudo pacman -S gnome-keyring`).",
-                e, e
-            )
-        })
+    pub async fn store_token(&self, token: &str) -> Result<()> {
+        self.token_entry
+            .set_secret(token)
+            .await
+            .map_err(|e| e.into())
     }
 
-    pub async fn validate_token(&self, token: &str) -> Result<ApiClient, String> {
+    pub async fn validate_token(&self, token: &str) -> Result<ApiClient> {
         let client = ApiClient::new(token.to_string());
 
         client
@@ -32,12 +34,14 @@ impl Auth {
             .map_err(|e| {
                 let err_msg = e.to_string();
                 if err_msg.contains("401") {
-                    "Invalid token. Please check your session token and try again.".to_string()
+                    AuthError::InvalidToken(
+                        "Please check your session token and try again.".to_string(),
+                    )
+                    .into()
                 } else if err_msg.contains("API GET request") {
-                    err_msg
+                    AuthError::RequestError(err_msg).into()
                 } else {
-                    "Could not connect to the server. Please check your internet connection."
-                        .to_string()
+                    AuthError::ServerConnectionError.into()
                 }
             })
     }

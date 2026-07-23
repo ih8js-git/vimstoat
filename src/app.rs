@@ -10,7 +10,7 @@ pub enum AppState {
     InputToken,
     ValidatingToken,
     LoggedIn,
-    Error(String),
+    Error(anyhow::Error),
 }
 
 pub struct App {

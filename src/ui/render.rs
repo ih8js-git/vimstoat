@@ -8,6 +8,6 @@ pub fn render(f: &mut Frame, app: &App) {
         AppState::InputToken => input_token::render(f, app),
         AppState::ValidatingToken => validating_token::render(f),
         AppState::LoggedIn => server_list::render(f, app),
-        AppState::Error(message) => error::render(f, message),
+        AppState::Error(message) => error::render(f, &message.to_string()),
     }
 }
