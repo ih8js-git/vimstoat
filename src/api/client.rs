@@ -2,7 +2,7 @@ use anyhow::{Result, anyhow};
 use reqwest::Client;
 use serde::de::DeserializeOwned;
 
-const BASE_URL: &str = "https://api.stoat.chat";
+use crate::api::API_BASE_URL;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -35,20 +35,22 @@ impl Endpoint {
 pub struct ApiClient {
     client: Client,
     token: String,
+    base_url: String,
 }
 
 impl ApiClient {
-    pub fn new(token: String) -> Self {
+    pub fn new(token: String, base_url: Option<String>) -> Self {
         Self {
             client: Client::new(),
             token,
+            base_url: base_url.unwrap_or(API_BASE_URL.to_string()),
         }
     }
 
     /// Makes a GET request to the specified endpoint and deserializes the JSON response into `T`.
     /// The `endpoint` should start with a slash, e.g., `/users/@me`.
     pub async fn get<T: DeserializeOwned>(&self, endpoint: Endpoint) -> Result<T> {
-        let url = format!("{}{}", BASE_URL, endpoint.path());
+        let url = format!("{}{}", self.base_url, endpoint.path());
 
         let response = self
             .client
@@ -71,6 +73,10 @@ impl ApiClient {
             ))
         }
     }
+
+    pub fn clone_token(&self) -> String {
+        self.token.clone()
+    }
 }
 
 #[cfg(test)]
@@ -81,7 +87,7 @@ mod tests {
     #[tokio::test]
     async fn test_get_config() {
         // Token doesn't matter for the root config endpoint, but we provide a dummy one
-        let client = ApiClient::new("dummy_token".to_string());
+        let client = ApiClient::new("dummy_token".to_string(), None);
 
         let result = client.get::<Value>(Endpoint::Config).await;
         assert!(result.is_ok(), "Failed to get config: {:?}", result.err());

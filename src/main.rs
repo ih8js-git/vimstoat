@@ -9,6 +9,7 @@ mod ui;
 use std::{fs, path::PathBuf};
 
 use app::App;
+use log::debug;
 use ratatui::crossterm::event::{self, Event};
 
 pub const LOG_FILE: &str = "logs";
@@ -46,7 +47,12 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
     let mut terminal = ratatui::init();
 
-    let mut app = App::new().await?;
+    let api_base_url = std::env::var("API_BASE_URL").ok();
+    let ws_base_url = std::env::var("WS_BASE_URL").ok();
+
+    let mut app = App::new(api_base_url.clone(), ws_base_url.clone()).await?;
+
+    app.authenticate_ws(&app.api_client.clone_token()).await?;
 
     loop {
         terminal.draw(|f| ui::render(f, &app))?;
@@ -61,6 +67,10 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
             if app.should_quit {
                 break;
             }
+        }
+
+        if let Some(event) = app.ws_rx.recv().await {
+            debug!("Received WebSocket event: {event:?}");
         }
     }
 
