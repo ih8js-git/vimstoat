@@ -1,8 +1,7 @@
 mod error;
 mod input_token;
+mod render;
 mod server_list;
 mod validating_token;
-
-mod render;
 
 pub use render::render;

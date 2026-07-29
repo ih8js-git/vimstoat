@@ -4,12 +4,16 @@ mod app;
 mod cache;
 mod error;
 mod input;
+mod notification;
 mod ui;
 
 use std::{fs, path::PathBuf};
 
 use app::App;
+use notify_rust::{CloseReason, NotificationResponse};
 use ratatui::crossterm::event::{self, Event};
+
+use crate::notification::NotifyHandler;
 
 pub const LOG_FILE: &str = "logs";
 
@@ -47,6 +51,32 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
     let mut terminal = ratatui::init();
 
     let mut app = App::new().await?;
+
+    /* This is an example, for now we have no use for notifications */
+    {
+        let n = NotifyHandler::new().await?;
+        let icon = n.clone_icon_path();
+
+        n.send_notification(
+            "This is a title".to_string(),
+            "This is a body".to_string(),
+            icon,
+            vec![
+                ("reply".to_string(), "Reply".to_string()),
+                ("read".to_string(), "Mark as read".to_string()),
+            ],
+            |response: &NotificationResponse| match response {
+                NotificationResponse::Default => log::info!("body clicked"),
+                NotificationResponse::Action(key) => log::info!("button {key:?} clicked"),
+                NotificationResponse::Reply(text) => log::info!("user replied: {text}"),
+                NotificationResponse::Closed(CloseReason::Dismissed) => {
+                    log::info!("dismissed by the user")
+                }
+                NotificationResponse::Closed(reason) => log::info!("closed: {reason:?}"),
+            },
+        )
+        .await;
+    }
 
     loop {
         terminal.draw(|f| ui::render(f, &app))?;
