@@ -24,8 +24,8 @@ impl Auth {
             .map_err(|e| e.into())
     }
 
-    pub async fn validate_token(&self, token: &str) -> Result<ApiClient> {
-        let client = ApiClient::new(token.to_string());
+    pub async fn validate_token(&self, token: &str, base_url: Option<String>) -> Result<ApiClient> {
+        let client = ApiClient::new(token.to_string(), base_url);
 
         client
             .get::<Value>(Endpoint::CurrentUser)
