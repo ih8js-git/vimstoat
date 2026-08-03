@@ -10,8 +10,8 @@ mod ui;
 use std::{fs, path::PathBuf};
 
 use app::App;
-use notify_rust::{CloseReason, NotificationResponse};
 use log::debug;
+use notify_rust::{CloseReason, NotificationResponse};
 use ratatui::crossterm::event::{self, Event};
 
 use crate::notification::NotifyHandler;
@@ -99,7 +99,7 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
             }
         }
 
-        if let Some(event) = app.ws_rx.recv().await {
+        if let Ok(event) = app.ws_rx.try_recv() {
             debug!("Received WebSocket event: {event:?}");
         }
     }
