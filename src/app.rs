@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use log::{debug, error, info, warn};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
-use tokio::sync::mpsc::Receiver;
+use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::time;
 
 use crate::{
@@ -17,13 +17,18 @@ use crate::{
     },
     cache::CacheStore,
     input::InputState,
-    models::Server,
+    models::{DirectMessageChannel, Server},
 };
+
+pub enum AppEvent {
+    DmsLoaded(Vec<DirectMessageChannel>),
+}
 
 pub enum AppState {
     InputToken,
     ValidatingToken,
     LoggedIn,
+    DmList,
     Error(anyhow::Error),
 }
 
@@ -41,6 +46,11 @@ pub struct App {
     pub cache: CacheStore,
     pub servers: Vec<Server>,
     pub selected_index: usize,
+    pub dm_channels: Vec<DirectMessageChannel>,
+    pub selected_dm_index: usize,
+    pub is_loading_dms: bool,
+    pub app_tx: Sender<AppEvent>,
+    pub app_rx: Receiver<AppEvent>,
 }
 
 impl App {
@@ -64,6 +74,7 @@ impl App {
         let (ws_client, ws_rx) = WsClient::connect(ws_base_url).await?;
 
         let cache = CacheStore::new()?;
+        let (app_tx, app_rx) = mpsc::channel::<AppEvent>(32);
 
         Ok(Self {
             state,
@@ -77,8 +88,22 @@ impl App {
             cache,
             servers: Vec::new(),
             selected_index: 0,
+            dm_channels: Vec::new(),
+            selected_dm_index: 0,
+            is_loading_dms: false,
+            app_tx,
+            app_rx,
             input_state: InputState::default(),
         })
+    }
+
+    pub fn handle_app_event(&mut self, event: AppEvent) {
+        match event {
+            AppEvent::DmsLoaded(dms) => {
+                self.dm_channels = dms;
+                self.is_loading_dms = false;
+            }
+        }
     }
 
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
@@ -123,6 +148,27 @@ impl App {
                 let action = self.input_state.process_key_event(key);
                 match action {
                     Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::Enter) => {
+                        if self.selected_index == 0 {
+                            self.selected_dm_index = 0;
+                            self.state = AppState::DmList;
+                            self.is_loading_dms = true;
+
+                            let api_client = self.api_client.clone();
+                            let app_tx = self.app_tx.clone();
+
+                            tokio::spawn(async move {
+                                match crate::api::dms::fetch_dms(&api_client).await {
+                                    Ok(dms) => {
+                                        app_tx.send(AppEvent::DmsLoaded(dms)).await.ok();
+                                    }
+                                    Err(e) => {
+                                        error!("Error fetching DMs in background: {e}");
+                                    }
+                                }
+                            });
+                        }
+                    }
                     Some(Action::CursorUp) => {
                         if self.selected_index > 0 {
                             self.selected_index -= 1;
@@ -136,6 +182,30 @@ impl App {
                     }
                     Some(Action::GoToTopUI) => {
                         self.selected_index = 0;
+                    }
+                    _ => {}
+                }
+            }
+            AppState::DmList => {
+                let action = self.input_state.process_key_event(key);
+                match action {
+                    Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::Escape) => {
+                        self.state = AppState::LoggedIn;
+                    }
+                    Some(Action::CursorUp) => {
+                        if self.selected_dm_index > 0 {
+                            self.selected_dm_index -= 1;
+                        }
+                    }
+                    Some(Action::CursorDown) => {
+                        let total_items = self.dm_channels.len();
+                        if total_items > 0 && self.selected_dm_index + 1 < total_items {
+                            self.selected_dm_index += 1;
+                        }
+                    }
+                    Some(Action::GoToTopUI) => {
+                        self.selected_dm_index = 0;
                     }
                     _ => {}
                 }

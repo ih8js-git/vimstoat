@@ -32,6 +32,7 @@ impl Endpoint {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct ApiClient {
     client: Client,
     token: String,

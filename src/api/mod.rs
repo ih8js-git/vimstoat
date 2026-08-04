@@ -1,5 +1,6 @@
 pub mod auth;
 pub mod client;
+pub mod dms;
 pub mod events;
 pub mod ws;
 

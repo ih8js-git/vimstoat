@@ -33,6 +33,14 @@ impl Default for KeyMaps {
                     Action::Quit,
                 ),
                 (
+                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
+                    Action::Enter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
+                    Action::Escape,
+                ),
+                (
                     vec![KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)],
                     Action::CursorDown,
                 ),
