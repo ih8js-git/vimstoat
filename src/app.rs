@@ -17,6 +17,7 @@ use crate::{
     },
     cache::CacheStore,
     input::InputState,
+    models::Server,
 };
 
 pub enum AppState {
@@ -38,6 +39,7 @@ pub struct App {
     pub ws_rx: Receiver<ServerEvent>,
     #[allow(unused)]
     pub cache: CacheStore,
+    pub servers: Vec<Server>,
 }
 
 impl App {
@@ -72,6 +74,7 @@ impl App {
             ws_client,
             ws_rx,
             cache,
+            servers: Vec::new(),
             input_state: InputState::default(),
         })
     }

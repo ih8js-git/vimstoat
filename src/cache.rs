@@ -93,6 +93,17 @@ impl CacheStore {
         Ok(Self { db, path })
     }
 
+    #[cfg(test)]
+    pub fn new_temporary(dir: &std::path::Path) -> Result<Self> {
+        let path = dir.join(DB_FILE);
+        let db = PickleDb::new(
+            &path,
+            pickledb::PickleDbDumpPolicy::AutoDump,
+            pickledb::SerializationMethod::Bin,
+        );
+        Ok(Self { db, path })
+    }
+
     pub fn set<V: Serialize + Debug>(&mut self, id: Id<V>, value: &V) -> Result<()> {
         let key = Self::build_key::<V>(id)?;
 

@@ -4,6 +4,7 @@ mod app;
 mod cache;
 mod error;
 mod input;
+mod models;
 mod notification;
 mod ui;
 
@@ -101,6 +102,7 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
         if let Ok(event) = app.ws_rx.try_recv() {
             debug!("Received WebSocket event: {event:?}");
+            api::ws::EventHandler::new(&mut app.servers).handle_event(&event);
         }
     }
 

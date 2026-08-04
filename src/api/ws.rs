@@ -4,9 +4,11 @@ use crate::{
         WS_BASE_URL,
         events::{ClientEvent, ServerEvent},
     },
+    models::Server,
 };
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
+use serde_json::Value;
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
 
@@ -81,5 +83,92 @@ impl WsClient {
         } else {
             tx.send(event).await.ok();
         }
+    }
+}
+
+pub struct EventHandler<'a> {
+    servers: &'a mut Vec<Server>,
+}
+
+impl<'a> EventHandler<'a> {
+    pub fn new(servers: &'a mut Vec<Server>) -> Self {
+        Self { servers }
+    }
+
+    pub fn handle_event(&mut self, event: &ServerEvent) {
+        match event {
+            ServerEvent::Ready { servers, .. } => {
+                self.handle_ready(servers.as_deref());
+            }
+            _ => {}
+        }
+    }
+
+    fn handle_ready(&mut self, servers: Option<&[Value]>) {
+        if let Some(servers) = servers {
+            for server_val in servers {
+                self.handle_server(server_val);
+            }
+        }
+    }
+
+    fn handle_server(&mut self, server_val: &Value) {
+        let id = server_val
+            .get("_id")
+            .or_else(|| server_val.get("id"))
+            .and_then(|v| v.as_str());
+        let name = server_val.get("name").and_then(|v| v.as_str());
+        let description = server_val
+            .get("description")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
+
+        if let (Some(id_str), Some(name_str)) = (id, name) {
+            let server = Server {
+                id: id_str.to_string(),
+                name: name_str.to_string(),
+                description,
+            };
+            self.servers.retain(|s| s.id != id_str);
+            self.servers.push(server);
+            info!("Stored server in memory: {id_str} => {name_str}");
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_handle_ready_event_servers_in_memory() {
+        let mut servers = Vec::new();
+
+        let server_id = "01KXCTGX37FXG9CASWC35R3S21";
+        let server_name = "vimstoat";
+
+        let ready_event = ServerEvent::Ready {
+            users: None,
+            servers: Some(vec![json!({
+                "_id": server_id,
+                "name": server_name,
+                "description": null
+            })]),
+            channels: None,
+            members: None,
+            emojis: None,
+            user_settings: None,
+            channel_unreads: None,
+            policy_changes: None,
+        };
+
+        let mut handler = EventHandler::new(&mut servers);
+        handler.handle_event(&ready_event);
+
+        assert_eq!(servers.len(), 1, "Server should be stored in memory");
+        assert_eq!(servers[0].id, server_id);
+        assert_eq!(servers[0].name, server_name);
+        assert_eq!(servers[0].description, None);
     }
 }
