@@ -40,6 +40,7 @@ pub struct App {
     #[allow(unused)]
     pub cache: CacheStore,
     pub servers: Vec<Server>,
+    pub selected_index: usize,
 }
 
 impl App {
@@ -75,6 +76,7 @@ impl App {
             ws_rx,
             cache,
             servers: Vec::new(),
+            selected_index: 0,
             input_state: InputState::default(),
         })
     }
@@ -119,9 +121,24 @@ impl App {
             AppState::ValidatingToken => {}
             AppState::LoggedIn => {
                 let action = self.input_state.process_key_event(key);
-                if let Some(Action::Quit) = action {
-                    self.should_quit = true;
-                };
+                match action {
+                    Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::CursorUp) => {
+                        if self.selected_index > 0 {
+                            self.selected_index -= 1;
+                        }
+                    }
+                    Some(Action::CursorDown) => {
+                        let total_items = 1 + self.servers.len();
+                        if total_items > 0 && self.selected_index + 1 < total_items {
+                            self.selected_index += 1;
+                        }
+                    }
+                    Some(Action::GoToTopUI) => {
+                        self.selected_index = 0;
+                    }
+                    _ => {}
+                }
             }
             AppState::Error(_) => {
                 if matches!(key.code, KeyCode::Char(_) | KeyCode::Esc | KeyCode::Enter) {

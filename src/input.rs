@@ -33,6 +33,22 @@ impl Default for KeyMaps {
                     Action::Quit,
                 ),
                 (
+                    vec![KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)],
+                    Action::CursorDown,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
+                    Action::CursorDown,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE)],
+                    Action::CursorUp,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
+                    Action::CursorUp,
+                ),
+                (
                     vec![
                         KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
                         KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
