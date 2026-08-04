@@ -6,8 +6,14 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
-pub fn render(f: &mut Frame, app: &App) {
+pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let total_items = app.dm_channels.len();
+
+    let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
+        Color::Green
+    } else {
+        Color::Reset
+    };
 
     if app.is_loading_dms && total_items == 0 {
         let msg = Paragraph::new("Loading Direct Messages...")
@@ -19,9 +25,10 @@ pub fn render(f: &mut Frame, app: &App) {
             .block(
                 Block::default()
                     .title(" Direct Messages ")
-                    .borders(Borders::ALL),
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(border_color)),
             );
-        f.render_widget(msg, f.area());
+        f.render_widget(msg, area);
         return;
     }
 
@@ -31,9 +38,10 @@ pub fn render(f: &mut Frame, app: &App) {
             .block(
                 Block::default()
                     .title(" Direct Messages ")
-                    .borders(Borders::ALL),
+                    .borders(Borders::ALL)
+                    .border_style(Style::default().fg(border_color)),
             );
-        f.render_widget(msg, f.area());
+        f.render_widget(msg, area);
         return;
     }
 
@@ -82,7 +90,8 @@ pub fn render(f: &mut Frame, app: &App) {
         .block(
             Block::default()
                 .title(" Direct Messages ")
-                .borders(Borders::ALL),
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(border_color)),
         )
         .highlight_style(
             Style::default()
@@ -90,5 +99,5 @@ pub fn render(f: &mut Frame, app: &App) {
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, f.area(), &mut state);
+    f.render_stateful_widget(list, area, &mut state);
 }

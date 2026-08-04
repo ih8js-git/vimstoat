@@ -2,6 +2,7 @@ mod action;
 mod api;
 mod app;
 mod cache;
+mod command;
 mod error;
 mod input;
 mod models;

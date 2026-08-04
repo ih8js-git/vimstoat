@@ -6,7 +6,7 @@ use ratatui::{
     widgets::{Block, Borders, List, ListItem, ListState},
 };
 
-pub fn render(f: &mut Frame, app: &App) {
+pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let total_items = 1 + app.servers.len();
     let selected_index = app.selected_index.min(total_items.saturating_sub(1));
 
@@ -73,13 +73,24 @@ pub fn render(f: &mut Frame, app: &App) {
     let mut state = ListState::default();
     state.select(Some(selected_index));
 
+    let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
+        Color::Green
+    } else {
+        Color::Reset
+    };
+
     let list = List::new(items)
-        .block(Block::default().title(" Servers ").borders(Borders::ALL))
+        .block(
+            Block::default()
+                .title(" Servers ")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(border_color)),
+        )
         .highlight_style(
             Style::default()
                 .fg(Color::Yellow)
                 .add_modifier(Modifier::BOLD),
         );
 
-    f.render_stateful_widget(list, f.area(), &mut state);
+    f.render_stateful_widget(list, area, &mut state);
 }

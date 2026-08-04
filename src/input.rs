@@ -29,8 +29,12 @@ impl Default for KeyMaps {
         Self {
             ui: HashMap::from([
                 (
-                    vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
-                    Action::Quit,
+                    vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::NONE)],
+                    Action::EnterCommandMode,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::SHIFT)],
+                    Action::EnterCommandMode,
                 ),
                 (
                     vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
@@ -118,7 +122,7 @@ impl Default for InputState {
 
 impl InputState {
     #[allow(unused)]
-    fn change_input_mode(&mut self, new_mode: InputMode) {
+    pub fn change_input_mode(&mut self, new_mode: InputMode) {
         self.pending_keys.clear();
         self.input_mode = new_mode;
     }
@@ -189,9 +193,9 @@ mod test {
                 "Should have no action"
             );
             assert_eq!(
-                state.process_key_event(KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)),
-                Some(Action::Quit),
-                "Should have done the quit action"
+                state.process_key_event(KeyEvent::new(KeyCode::Char(':'), KeyModifiers::NONE)),
+                Some(Action::EnterCommandMode),
+                "Should have done the enter command mode action"
             );
         }
     }

@@ -16,7 +16,8 @@ use crate::{
         ws::WsClient,
     },
     cache::CacheStore,
-    input::InputState,
+    command::Command,
+    input::{InputMode, InputState},
     models::{DirectMessageChannel, Server},
 };
 
@@ -35,6 +36,7 @@ pub enum AppState {
 pub struct App {
     pub state: AppState,
     pub input_text: String,
+    pub command_text: String,
     pub auth: Auth,
     pub should_quit: bool,
     pub input_state: InputState,
@@ -79,6 +81,7 @@ impl App {
         Ok(Self {
             state,
             input_text: String::new(),
+            command_text: String::new(),
             auth,
             should_quit: false,
             api_base_url: api_base_url.unwrap_or(API_BASE_URL.to_string()),
@@ -107,6 +110,30 @@ impl App {
     }
 
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        if matches!(self.input_state.input_mode, InputMode::Command) {
+            let action = self.input_state.process_key_event(key);
+            match action {
+                Some(Action::AppendCharacter(c)) => {
+                    self.command_text.push(c);
+                }
+                Some(Action::RemoveCharacter) => {
+                    self.command_text.pop();
+                }
+                Some(Action::Escape) => {
+                    self.command_text.clear();
+                    self.input_state.change_input_mode(InputMode::UI);
+                }
+                Some(Action::Enter) => {
+                    if let Some(cmd) = Command::parse(&self.command_text) {
+                        cmd.execute(self);
+                    }
+                    self.command_text.clear();
+                    self.input_state.change_input_mode(InputMode::UI);
+                }
+                _ => {}
+            }
+            return Ok(());
+        }
         match self.state {
             AppState::InputToken => match key.code {
                 KeyCode::Enter => {
@@ -148,6 +175,10 @@ impl App {
                 let action = self.input_state.process_key_event(key);
                 match action {
                     Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::EnterCommandMode) => {
+                        self.command_text.clear();
+                        self.input_state.change_input_mode(InputMode::Command);
+                    }
                     Some(Action::Enter) => {
                         if self.selected_index == 0 {
                             self.selected_dm_index = 0;
@@ -190,6 +221,10 @@ impl App {
                 let action = self.input_state.process_key_event(key);
                 match action {
                     Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::EnterCommandMode) => {
+                        self.command_text.clear();
+                        self.input_state.change_input_mode(InputMode::Command);
+                    }
                     Some(Action::Escape) => {
                         self.state = AppState::LoggedIn;
                     }
