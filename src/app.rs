@@ -23,6 +23,7 @@ use crate::{
 
 pub enum AppEvent {
     DmsLoaded(Vec<DirectMessageChannel>),
+    DmMessagesLoaded(Vec<serde_json::Value>),
 }
 
 pub enum AppState {
@@ -52,6 +53,8 @@ pub struct App {
     pub dm_channels: Vec<DirectMessageChannel>,
     pub selected_dm_index: usize,
     pub is_loading_dms: bool,
+    pub current_dm_messages: Vec<serde_json::Value>,
+    pub is_loading_messages: bool,
     pub app_tx: Sender<AppEvent>,
     pub app_rx: Receiver<AppEvent>,
 }
@@ -95,6 +98,8 @@ impl App {
             dm_channels: Vec::new(),
             selected_dm_index: 0,
             is_loading_dms: false,
+            current_dm_messages: Vec::new(),
+            is_loading_messages: false,
             app_tx,
             app_rx,
             input_state: InputState::default(),
@@ -106,6 +111,10 @@ impl App {
             AppEvent::DmsLoaded(dms) => {
                 self.dm_channels = dms;
                 self.is_loading_dms = false;
+            }
+            AppEvent::DmMessagesLoaded(messages) => {
+                self.current_dm_messages = messages;
+                self.is_loading_messages = false;
             }
         }
     }
@@ -245,7 +254,44 @@ impl App {
                     }
                     Some(Action::Enter) => {
                         if !self.dm_channels.is_empty() {
+                            let channel_id = self.dm_channels[self.selected_dm_index].id.clone();
                             self.state = AppState::Dm;
+                            self.is_loading_messages = true;
+                            self.current_dm_messages.clear();
+
+                            let api_client = self.api_client.clone();
+                            let app_tx = self.app_tx.clone();
+
+                            tokio::spawn(async move {
+                                let query = crate::api::channel::MessageHistoryQuery {
+                                    limit: Some(50),
+                                    before: None,
+                                    after: None,
+                                    sort: None,
+                                    nearby: None,
+                                };
+                                match crate::api::channel::fetch_message_history(
+                                    &api_client,
+                                    &channel_id,
+                                    Some(&query),
+                                )
+                                .await
+                                {
+                                    Ok(messages) => {
+                                        app_tx
+                                            .send(AppEvent::DmMessagesLoaded(messages))
+                                            .await
+                                            .ok();
+                                    }
+                                    Err(e) => {
+                                        error!("Error fetching messages: {e}");
+                                        app_tx
+                                            .send(AppEvent::DmMessagesLoaded(Vec::new()))
+                                            .await
+                                            .ok();
+                                    }
+                                }
+                            });
                         }
                     }
                     _ => {}
