@@ -1,4 +1,3 @@
-/// Action based on user input
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
     #[allow(unused)]

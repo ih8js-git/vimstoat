@@ -30,6 +30,7 @@ pub enum AppState {
     ValidatingToken,
     LoggedIn,
     DmList,
+    Dm,
     Error(anyhow::Error),
 }
 
@@ -241,6 +242,25 @@ impl App {
                     }
                     Some(Action::GoToTopUI) => {
                         self.selected_dm_index = 0;
+                    }
+                    Some(Action::Enter) => {
+                        if !self.dm_channels.is_empty() {
+                            self.state = AppState::Dm;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            AppState::Dm => {
+                let action = self.input_state.process_key_event(key);
+                match action {
+                    Some(Action::Quit) => self.should_quit = true,
+                    Some(Action::EnterCommandMode) => {
+                        self.command_text.clear();
+                        self.input_state.change_input_mode(InputMode::Command);
+                    }
+                    Some(Action::Escape) => {
+                        self.state = AppState::DmList;
                     }
                     _ => {}
                 }
