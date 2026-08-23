@@ -1,7 +1,9 @@
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use log::{debug, error, info, warn};
 use ratatui::crossterm::event::{KeyCode, KeyEvent};
+use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::time;
 
@@ -46,8 +48,7 @@ pub struct App {
     pub api_client: ApiClient,
     pub ws_client: WsClient,
     pub ws_rx: Receiver<ServerEvent>,
-    #[allow(unused)]
-    pub cache: CacheStore,
+    pub cache: Arc<Mutex<CacheStore>>,
     pub servers: Vec<Server>,
     pub selected_index: usize,
     pub dm_channels: Vec<DirectMessageChannel>,
@@ -79,7 +80,7 @@ impl App {
 
         let (ws_client, ws_rx) = WsClient::connect(ws_base_url).await?;
 
-        let cache = CacheStore::new()?;
+        let cache = Arc::new(Mutex::new(CacheStore::new()?));
         let (app_tx, app_rx) = mpsc::channel::<AppEvent>(32);
 
         Ok(Self {
@@ -195,11 +196,12 @@ impl App {
                             self.state = AppState::DmList;
                             self.is_loading_dms = true;
 
+                            let cache = self.cache.clone();
                             let api_client = self.api_client.clone();
                             let app_tx = self.app_tx.clone();
 
                             tokio::spawn(async move {
-                                match crate::api::dms::fetch_dms(&api_client).await {
+                                match crate::api::dms::fetch_dms(&api_client, cache).await {
                                     Ok(dms) => {
                                         app_tx.send(AppEvent::DmsLoaded(dms)).await.ok();
                                     }
