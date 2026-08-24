@@ -4,6 +4,7 @@ mod app;
 mod cache;
 mod command;
 mod error;
+mod handlers;
 mod input;
 mod models;
 mod notification;

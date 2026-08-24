@@ -1,0 +1,173 @@
+use ratatui::crossterm::event::KeyEvent;
+
+use crate::{action::Action, app::App, input::InputMode};
+
+pub fn handle(app: &mut App, key: KeyEvent) {
+    let action = app.input_state.process_key_event(key);
+    match action {
+        Some(Action::CursorLeft) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            if app.input_cursor > 0 && chars.get(app.input_cursor - 1) != Some(&'\n') {
+                app.input_cursor -= 1;
+            }
+        }
+        Some(Action::CursorRight) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let max_for_line = {
+                let mut end = app.input_cursor;
+                while end < chars.len() && chars[end] != '\n' {
+                    end += 1;
+                }
+                if matches!(app.input_state.input_mode, InputMode::Insert) {
+                    end
+                } else if end > 0 && chars.get(end - 1) != Some(&'\n') {
+                    end - 1
+                } else {
+                    end
+                }
+            };
+            if app.input_cursor < max_for_line {
+                app.input_cursor += 1;
+            }
+        }
+        Some(Action::CursorUp) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let mut line_start = 0;
+            for i in (0..app.input_cursor).rev() {
+                if chars.get(i) == Some(&'\n') {
+                    line_start = i + 1;
+                    break;
+                }
+            }
+            if line_start > 0 {
+                let col = app.input_cursor - line_start;
+                let mut prev_line_start = 0;
+                for i in (0..line_start - 1).rev() {
+                    if chars.get(i) == Some(&'\n') {
+                        prev_line_start = i + 1;
+                        break;
+                    }
+                }
+                let prev_line_len = (line_start - 1) - prev_line_start;
+
+                let is_normal = matches!(app.input_state.input_mode, InputMode::UI);
+                let max_col = if is_normal && prev_line_len > 0 {
+                    prev_line_len - 1
+                } else {
+                    prev_line_len
+                };
+
+                app.input_cursor = prev_line_start + col.min(max_col);
+            }
+        }
+        Some(Action::CursorDown) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let mut line_start = 0;
+            for i in (0..app.input_cursor).rev() {
+                if chars.get(i) == Some(&'\n') {
+                    line_start = i + 1;
+                    break;
+                }
+            }
+            let col = app.input_cursor - line_start;
+
+            let mut next_line_start = None;
+            for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                if *c == '\n' {
+                    next_line_start = Some(i + 1);
+                    break;
+                }
+            }
+            if let Some(start) = next_line_start {
+                let mut next_line_len = 0;
+                for c in chars.iter().skip(start) {
+                    if *c == '\n' {
+                        break;
+                    }
+                    next_line_len += 1;
+                }
+                let is_normal = matches!(app.input_state.input_mode, InputMode::UI);
+                let max_col = if is_normal && next_line_len > 0 {
+                    next_line_len - 1
+                } else {
+                    next_line_len
+                };
+                app.input_cursor = start + col.min(max_col);
+            }
+        }
+        Some(Action::Quit) => app.should_quit = true,
+        Some(Action::EnterCommandMode) => {
+            app.command_text.clear();
+            app.set_input_mode(InputMode::Command);
+        }
+        Some(Action::EnterInsertMode) => {
+            app.set_input_mode(InputMode::Insert);
+        }
+        Some(Action::EnterInsertModeAfter) => {
+            if app.input_cursor < app.input_text.chars().count() {
+                app.input_cursor += 1;
+            }
+            app.set_input_mode(InputMode::Insert);
+        }
+        Some(Action::OpenNewLineBelow) => {
+            let mut chars: Vec<char> = app.input_text.chars().collect();
+            let mut insert_idx = chars.len();
+            for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                if *c == '\n' {
+                    insert_idx = i;
+                    break;
+                }
+            }
+            chars.insert(insert_idx, '\n');
+            app.input_text = chars.into_iter().collect();
+            app.input_cursor = insert_idx + 1;
+            app.set_input_mode(InputMode::Insert);
+        }
+        Some(Action::OpenNewLineAbove) => {
+            let mut chars: Vec<char> = app.input_text.chars().collect();
+            let mut insert_idx = 0;
+            for i in (0..app.input_cursor).rev() {
+                if chars.get(i) == Some(&'\n') {
+                    insert_idx = i + 1;
+                    break;
+                }
+            }
+            chars.insert(insert_idx, '\n');
+            app.input_text = chars.into_iter().collect();
+            app.input_cursor = insert_idx;
+            app.set_input_mode(InputMode::Insert);
+        }
+        Some(Action::AppendCharacter(c)) => {
+            let mut chars: Vec<char> = app.input_text.chars().collect();
+            if app.input_cursor <= chars.len() {
+                chars.insert(app.input_cursor, c);
+                app.input_text = chars.into_iter().collect();
+                app.input_cursor += 1;
+            }
+        }
+        Some(Action::RemoveCharacter) => {
+            if app.input_cursor > 0 {
+                let mut chars: Vec<char> = app.input_text.chars().collect();
+                chars.remove(app.input_cursor - 1);
+                app.input_text = chars.into_iter().collect();
+                app.input_cursor -= 1;
+            }
+        }
+        Some(Action::Escape) => {
+            if matches!(app.input_state.input_mode, InputMode::Insert) && app.input_cursor > 0 {
+                let chars: Vec<char> = app.input_text.chars().collect();
+                if chars.get(app.input_cursor - 1) != Some(&'\n') {
+                    app.input_cursor -= 1;
+                }
+            }
+            app.set_input_mode(InputMode::UI);
+        }
+        Some(Action::Enter) if matches!(app.input_state.input_mode, InputMode::Insert) => {
+            // TODO: Actually send the message over WS/HTTP
+            app.input_text.clear();
+            app.input_cursor = 0;
+            app.set_input_mode(InputMode::UI);
+        }
+        _ => {}
+    }
+}
