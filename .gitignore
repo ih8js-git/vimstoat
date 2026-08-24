@@ -28,3 +28,4 @@ Cargo.lock
 
 # Logs
 *.log
+docs/vimstoat/book*/

@@ -20,3 +20,24 @@ impl From<pickledb::error::Error> for CacheError {
         CacheError::DbError(value)
     }
 }
+
+#[derive(Error, Debug)]
+pub enum AuthError {
+    #[error("Keyring Error: {0:?}")]
+    KeyringError(keyring::Error),
+
+    #[error("Invalid Token: {0}")]
+    InvalidToken(String),
+
+    #[error("Could not connect to the server. Please check your internet connection.")]
+    ServerConnectionError,
+
+    #[error("Request Error: {0}")]
+    RequestError(String),
+}
+
+impl From<keyring::Error> for AuthError {
+    fn from(value: keyring::Error) -> Self {
+        AuthError::KeyringError(value)
+    }
+}

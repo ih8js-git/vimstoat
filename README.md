@@ -2,7 +2,7 @@
 
 A lightweight TUI [Stoat](https://stoat.chat) client that feels like Vim.
 
-> **Status:** Early development — see [ROADMAP.md](ROADMAP.md) for the full plan.
+> **Status:** Early development — see our [Documentation](docs/vimstoat/src/SUMMARY.md) for features and keybinds.
 
 ## What is this?
 
