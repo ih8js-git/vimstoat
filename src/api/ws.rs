@@ -36,12 +36,12 @@ impl WsClient {
                             Self::dispatch_event(event, &tx_incoming).await;
                         }
                         Err(e) => {
-                            error!("Error deserializing ServerEvent: {e}\nBrut data: {text}");
+                            error!("Error deserializing ServerEvent: {e}\nRaw data: {text}");
                             break;
                         }
                     },
                     Ok(WsMessage::Close(_)) => {
-                        info!("WS Connexion closed by server.");
+                        info!("WS Connection closed by server.");
                         break;
                     }
                     Err(e) => {
