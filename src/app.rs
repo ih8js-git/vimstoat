@@ -24,6 +24,11 @@ use crate::{
 pub enum AppEvent {
     DmsLoaded(Vec<DirectMessageChannel>, Vec<crate::models::User>),
     DmMessagesLoaded(Vec<crate::models::Message>, Vec<crate::models::User>),
+    NewMessage {
+        channel_id: String,
+        message: crate::models::Message,
+        new_user: Option<crate::models::User>,
+    },
 }
 
 pub enum AppState {
@@ -131,6 +136,17 @@ impl App {
                 }
                 self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
+            }
+            AppEvent::NewMessage { channel_id, message, new_user } => {
+                if let Some(user) = new_user {
+                    self.store.users.insert(user.id.clone(), user);
+                }
+                // Only append if it belongs to the currently viewed channel
+                if matches!(self.state, AppState::Dm) 
+                    && self.store.dm_channels.get(self.selected_dm_index).map(|c| &c.id) == Some(&channel_id) 
+                {
+                    self.store.current_dm_messages.insert(0, message); // newest is at 0 (rev order in UI)
+                }
             }
         }
     }

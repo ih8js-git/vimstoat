@@ -137,6 +137,57 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         if let Ok(event) = app.ws_rx.try_recv() {
             debug!("Received WebSocket event: {event:?}");
             api::ws::EventHandler::new(&mut app.store.servers).handle_event(&event);
+
+            if let crate::api::events::ServerEvent::Message(msg_val) = event {
+                let api_client = app.api_client.clone();
+                let app_tx = app.app_tx.clone();
+                let local_users = app.store.users.clone();
+
+                tokio::spawn(async move {
+                    if let Some(channel_id) = msg_val.get("channel").and_then(|v| v.as_str()) {
+                        let id = msg_val.get("_id").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
+                        let author_id = msg_val.get("author").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+                        let channel_id = channel_id.to_string();
+
+                        let mut author_name = author_id.clone();
+                        let mut new_user_fetched = None;
+
+                        if let Some(user) = local_users.get(&author_id) {
+                            author_name = user.username.clone();
+                        } else if author_id != "Unknown" {
+                            if let Ok(user_val) = api_client
+                                .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))
+                                .await
+                                && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
+                            {
+                                author_name = username.to_string();
+                                let new_user = crate::models::User {
+                                    id: author_id.clone(),
+                                    username: username.to_string(),
+                                };
+                                new_user_fetched = Some(new_user);
+                            }
+                        }
+
+                        let content = if let Some(content_val) = msg_val.get("content").and_then(|v| v.as_str()) {
+                            content_val.to_string()
+                        } else if let Some(sys) = msg_val.get("system") {
+                            format!("[System message: {}]", sys.get("type").and_then(|v| v.as_str()).unwrap_or("unknown"))
+                        } else {
+                            "[Unsupported message]".to_string()
+                        };
+
+                        let message = crate::models::Message {
+                            id,
+                            author_id,
+                            author_name,
+                            content,
+                        };
+
+                        app_tx.send(app::AppEvent::NewMessage { channel_id, message, new_user: new_user_fetched }).await.ok();
+                    }
+                });
+            }
         }
     }
 
