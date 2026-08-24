@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use log::{error, warn};
 use notify_rust::{Notification, ResponseHandler, Timeout};
 use std::{fs, path::PathBuf, thread};

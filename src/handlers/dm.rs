@@ -247,34 +247,34 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             ) =>
         {
             let content = app.input_text.trim().to_string();
-            if !content.is_empty() {
-                if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
-                    let channel_id = channel.id.clone();
-                    let api_client = app.api_client.clone();
+            if !content.is_empty()
+                && let Some(channel) = app.store.dm_channels.get(app.selected_dm_index)
+            {
+                let channel_id = channel.id.clone();
+                let api_client = app.api_client.clone();
 
-                    tokio::spawn(async move {
-                        #[derive(serde::Serialize)]
-                        struct SendMessagePayload {
-                            content: String,
-                            nonce: String,
-                        }
+                tokio::spawn(async move {
+                    #[derive(serde::Serialize)]
+                    struct SendMessagePayload {
+                        content: String,
+                        nonce: String,
+                    }
 
-                        let payload = SendMessagePayload {
-                            content,
-                            nonce: ulid::Ulid::generate().to_string(),
-                        };
+                    let payload = SendMessagePayload {
+                        content,
+                        nonce: ulid::Ulid::generate().to_string(),
+                    };
 
-                        if let Err(e) = api_client
-                            .post::<serde_json::Value, _>(
-                                crate::api::client::Endpoint::SendMessage(channel_id),
-                                &payload,
-                            )
-                            .await
-                        {
-                            log::error!("Failed to send message: {}", e);
-                        }
-                    });
-                }
+                    if let Err(e) = api_client
+                        .post::<serde_json::Value, _>(
+                            crate::api::client::Endpoint::SendMessage(channel_id),
+                            &payload,
+                        )
+                        .await
+                    {
+                        log::error!("Failed to send message: {}", e);
+                    }
+                });
             }
             app.input_text.clear();
             app.input_cursor = 0;

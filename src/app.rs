@@ -192,15 +192,14 @@ impl App {
                         .map(|c| &c.id)
                         == Some(&channel_id);
 
-                if is_active_channel {
-                    if let Some(msg) = self
+                if is_active_channel
+                    && let Some(msg) = self
                         .store
                         .current_dm_messages
                         .iter_mut()
                         .find(|m| m.id == message_id)
-                    {
-                        msg.content = content;
-                    }
+                {
+                    msg.content = content;
                 }
             }
             AppEvent::MessageDeleted {

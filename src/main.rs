@@ -12,12 +12,10 @@ mod ui;
 
 use std::{fs, path::PathBuf};
 
+use crate::{api::client::Endpoint, cache::Id};
 use app::App;
 use log::debug;
-use notify_rust::{CloseReason, NotificationResponse};
 use ratatui::crossterm::event::{self, Event};
-
-use crate::{api::client::Endpoint, cache::Id, notification::NotifyHandler};
 
 pub const LOG_FILE: &str = "logs";
 
@@ -89,32 +87,6 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         app.store.users.insert(user.id.clone(), user);
     }
 
-    /* This is an example, for now we have no use for notifications */
-    {
-        let n = NotifyHandler::new().await?;
-        let icon = n.clone_icon_path();
-
-        n.send_notification(
-            "This is a title".to_string(),
-            "This is a body".to_string(),
-            icon,
-            vec![
-                ("reply".to_string(), "Reply".to_string()),
-                ("read".to_string(), "Mark as read".to_string()),
-            ],
-            |response: &NotificationResponse| match response {
-                NotificationResponse::Default => log::info!("body clicked"),
-                NotificationResponse::Action(key) => log::info!("button {key:?} clicked"),
-                NotificationResponse::Reply(text) => log::info!("user replied: {text}"),
-                NotificationResponse::Closed(CloseReason::Dismissed) => {
-                    log::info!("dismissed by the user")
-                }
-                NotificationResponse::Closed(reason) => log::info!("closed: {reason:?}"),
-            },
-        )
-        .await;
-    }
-
     loop {
         terminal.draw(|f| ui::render(f, &app))?;
 
@@ -162,22 +134,21 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
                         if let Some(user) = local_users.get(&author_id) {
                             author_name = user.username.clone();
-                        } else if author_id != "Unknown" {
-                            if let Ok(user_val) = api_client
+                        } else if author_id != "Unknown"
+                            && let Ok(user_val) = api_client
                                 .get::<serde_json::Value>(crate::api::client::Endpoint::User(
                                     author_id.clone(),
                                 ))
                                 .await
-                                && let Some(username) =
-                                    user_val.get("username").and_then(|v| v.as_str())
-                            {
-                                author_name = username.to_string();
-                                let new_user = crate::models::User {
-                                    id: author_id.clone(),
-                                    username: username.to_string(),
-                                };
-                                new_user_fetched = Some(new_user);
-                            }
+                            && let Some(username) =
+                                user_val.get("username").and_then(|v| v.as_str())
+                        {
+                            author_name = username.to_string();
+                            let new_user = crate::models::User {
+                                id: author_id.clone(),
+                                username: username.to_string(),
+                            };
+                            new_user_fetched = Some(new_user);
                         }
 
                         let content = if let Some(content_val) =
