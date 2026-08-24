@@ -6,7 +6,7 @@ use std::{fs, path::PathBuf, thread};
 
 use crate::Result;
 
-pub const ICON_FILE: &str = "icon"; // since idk which file extention we'll be using, I'm leaving it without
+pub const ICON_FILE: &str = "icon"; // Extension omitted pending final icon format determination
 pub const NOTIFICATION_TIMEOUT: u32 = 10_000;
 
 fn get_icon_path() -> Option<PathBuf> {
