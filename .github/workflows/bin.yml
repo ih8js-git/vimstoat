@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   publish:
-    name: Publishing for ${{ matrix.os }} (${{ matrix.architecture }})
+    name: Publishing for ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -30,86 +30,100 @@ jobs:
             target: aarch64-apple-darwin
             architecture: arm64
             binary-postfix: ""
-            use-cross: false
             binary-name: vimstoat
-          - os: ubuntu-22.04
+            use-cross: false
+          - os: ubuntu-latest
             os-name: linux
             target: x86_64-unknown-linux-gnu
             architecture: x86_64
             binary-postfix: ""
-            use-cross: false
             binary-name: vimstoat
-          - os: ubuntu-22.04-arm
+            use-cross: false
+          - os: ubuntu-latest
+            os-name: linux
+            target: x86_64-unknown-linux-musl
+            architecture: x86_64-musl
+            binary-postfix: ""
+            binary-name: vimstoat
+            use-cross: true
+          - os: ubuntu-latest
             os-name: linux
             target: aarch64-unknown-linux-gnu
             architecture: arm64
             binary-postfix: ""
-            use-cross: false
             binary-name: vimstoat
+            use-cross: true
+          - os: ubuntu-latest
+            os-name: linux
+            target: aarch64-unknown-linux-musl
+            architecture: arm64-musl
+            binary-postfix: ""
+            binary-name: vimstoat
+            use-cross: true
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
             architecture: x86_64
             binary-postfix: ".exe"
-            use-cross: false
             binary-name: vimstoat
+            use-cross: false
           - os: windows-latest
             os-name: windows
             target: aarch64-pc-windows-msvc
             architecture: arm64
             binary-postfix: ".exe"
-            use-cross: true
             binary-name: vimstoat
+            use-cross: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
       - name: Install Rust toolchain
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: ${{ matrix.target }}
-          profile: minimal
-          override: true
+          targets: ${{ matrix.target }}
+
       - uses: Swatinem/rust-cache@v2
-      - name: Cargo build
-        uses: actions-rs/cargo@v1
+
+      - name: Install cross
+        if: matrix.use-cross
+        uses: taiki-e/install-action@v2
         with:
-          command: build
-          use-cross: ${{ matrix.use-cross }}
-          toolchain: stable
-          args: --release --target ${{ matrix.target }}
-      - name: install strip command
+          tool: cross
+
+      - name: Cargo build
         shell: bash
         run: |
-          if [[ ${{ matrix.target }} == aarch64-unknown-linux-gnu ]]; then
-              sudo apt update
-              sudo apt-get install -y binutils-aarch64-linux-gnu
+          if [ "${{ matrix.use-cross }}" = "true" ]; then
+            cross build --release --target ${{ matrix.target }}
+          else
+            cargo build --release --target ${{ matrix.target }}
           fi
+
       - name: Packaging final binary
         shell: bash
         run: |
-          cp emojis.json target/${{ matrix.target }}/release
           cd target/${{ matrix.target }}/release
 
-          BINARY_NAME=${{ matrix.binary-name }}${{ matrix.binary-postfix }}
-          if [[ ${{ runner.os }} != "Windows" ]]; then
-            if [[ ${{ matrix.target }} == aarch64-unknown-linux-gnu ]]; then
-              GCC_PREFIX="aarch64-linux-gnu-"
-            else
-              GCC_PREFIX=""
-            fi
-            "$GCC_PREFIX"strip $BINARY_NAME
-          fi
+          BINARY_NAME="${{ matrix.binary-name }}${{ matrix.binary-postfix }}"
+          RELEASE_NAME="${{ matrix.binary-name }}-${{ github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}"
 
-          RELEASE_NAME=${{ matrix.binary-name }}-${{ github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}
-          tar czvf $RELEASE_NAME.tar.gz $BINARY_NAME emojis.json
+          # Create archive with binary, README, and LICENSE
+          cp ../../../README.md . 2>/dev/null || true
+          cp ../../../LICENSE . 2>/dev/null || true
 
-          if [[ ${{ runner.os }} == 'Windows' ]]; then
-            certutil -hashfile $RELEASE_NAME.tar.gz sha256 | grep -E [A-Fa-f0-9]{64} > $RELEASE_NAME.sha256
+          tar -czvf "$RELEASE_NAME.tar.gz" "$BINARY_NAME" README.md LICENSE
+
+          # Generate SHA256 checksum
+          if [[ "${{ runner.os }}" == "Windows" ]]; then
+            certutil -hashfile "$RELEASE_NAME.tar.gz" sha256 | grep -E "[A-Fa-f0-9]{64}" > "$RELEASE_NAME.sha256"
+          elif command -v sha256sum &> /dev/null; then
+            sha256sum "$RELEASE_NAME.tar.gz" > "$RELEASE_NAME.sha256"
           else
-            shasum -a 256 $RELEASE_NAME.tar.gz > $RELEASE_NAME.sha256
+            shasum -a 256 "$RELEASE_NAME.tar.gz" > "$RELEASE_NAME.sha256"
           fi
+
       - name: Releasing assets
         uses: softprops/action-gh-release@v2
         with:
