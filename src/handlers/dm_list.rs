@@ -33,6 +33,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             let channel_id = app.store.dm_channels[app.selected_dm_index].id.clone();
             app.store.dm_channels[app.selected_dm_index].has_unread = false;
             app.state = AppState::Dm;
+            app.set_input_mode(InputMode::Normal);
             app.is_loading_messages = true;
             app.store.current_dm_messages.clear();
             app.input_text.clear();
@@ -79,9 +80,12 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                                 author_name = user.username.clone();
                             } else if author_id != "Unknown" {
                                 if let Ok(user_val) = api_client
-                                    .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))
+                                    .get::<serde_json::Value>(crate::api::client::Endpoint::User(
+                                        author_id.clone(),
+                                    ))
                                     .await
-                                    && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
+                                    && let Some(username) =
+                                        user_val.get("username").and_then(|v| v.as_str())
                                 {
                                     author_name = username.to_string();
                                     let new_user = crate::models::User {
@@ -117,7 +121,10 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                         }
 
                         app_tx
-                            .send(AppEvent::DmMessagesLoaded(parsed_messages, new_users_fetched))
+                            .send(AppEvent::DmMessagesLoaded(
+                                parsed_messages,
+                                new_users_fetched,
+                            ))
                             .await
                             .ok();
                     }

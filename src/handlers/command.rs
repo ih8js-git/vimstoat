@@ -13,14 +13,22 @@ pub fn handle(app: &mut App, key: KeyEvent) {
         }
         Some(Action::Escape) => {
             app.command_text.clear();
-            app.set_input_mode(InputMode::UI);
+            if matches!(app.state, crate::app::AppState::Dm) {
+                app.set_input_mode(InputMode::Normal);
+            } else {
+                app.set_input_mode(InputMode::UI);
+            }
         }
         Some(Action::Enter) => {
             if let Some(cmd) = Command::parse(&app.command_text) {
                 cmd.execute(app);
             }
             app.command_text.clear();
-            app.set_input_mode(InputMode::UI);
+            if matches!(app.state, crate::app::AppState::Dm) {
+                app.set_input_mode(InputMode::Normal);
+            } else {
+                app.set_input_mode(InputMode::UI);
+            }
         }
         _ => {}
     }

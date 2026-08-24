@@ -79,7 +79,10 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         ];
 
         if channel.has_unread {
-            spans.push(Span::styled(" [*]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+            spans.push(Span::styled(
+                " [*]",
+                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+            ));
         }
 
         if let Some(preview) = &channel.last_message_preview {
@@ -88,7 +91,10 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                 short_preview.truncate(27);
                 short_preview.push_str("...");
             }
-            spans.push(Span::styled(format!(" - {}", short_preview), Style::default().fg(Color::DarkGray)));
+            spans.push(Span::styled(
+                format!(" - {}", short_preview),
+                Style::default().fg(Color::DarkGray),
+            ));
         }
 
         items.push(ListItem::new(Line::from(spans)));

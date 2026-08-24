@@ -128,7 +128,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     if matches!(
         app.input_state.input_mode,
-        crate::input::InputMode::Insert | crate::input::InputMode::UI
+        crate::input::InputMode::Insert | crate::input::InputMode::Normal
     ) {
         let mut cursor_line_idx = 0;
         let mut cursor_char_idx = 0;

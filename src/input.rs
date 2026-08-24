@@ -37,96 +37,102 @@ struct KeyMaps {
 
 impl Default for KeyMaps {
     fn default() -> Self {
+        let ui_maps = HashMap::from([
+            (
+                vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::NONE)],
+                Action::EnterCommandMode,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::SHIFT)],
+                Action::EnterCommandMode,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
+                Action::Enter,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE)],
+                Action::EnterInsertMode,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)],
+                Action::EnterInsertModeAfter,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('I'), KeyModifiers::SHIFT)],
+                Action::EnterInsertModeLineStart,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('A'), KeyModifiers::SHIFT)],
+                Action::EnterInsertModeLineEnd,
+            ),
+            (
+                vec![
+                    KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
+                    KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
+                ],
+                Action::DeleteLine,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)],
+                Action::OpenNewLineBelow,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('O'), KeyModifiers::SHIFT)],
+                Action::OpenNewLineAbove,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE)],
+                Action::CursorLeft,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE)],
+                Action::CursorRight,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
+                Action::CursorLeft,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
+                Action::CursorRight,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
+                Action::Escape,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)],
+                Action::CursorDown,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
+                Action::CursorDown,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE)],
+                Action::CursorUp,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
+                Action::CursorUp,
+            ),
+            (
+                vec![
+                    KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                    KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
+                ],
+                Action::GoToTopUI,
+            ),
+            (
+                vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
+                Action::Quit,
+            ),
+        ]);
+
         Self {
-            ui: HashMap::from([
-                (
-                    vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::NONE)],
-                    Action::EnterCommandMode,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char(':'), KeyModifiers::SHIFT)],
-                    Action::EnterCommandMode,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
-                    Action::Enter,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE)],
-                    Action::EnterInsertMode,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)],
-                    Action::EnterInsertModeAfter,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('I'), KeyModifiers::SHIFT)],
-                    Action::EnterInsertModeLineStart,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('A'), KeyModifiers::SHIFT)],
-                    Action::EnterInsertModeLineEnd,
-                ),
-                (
-                    vec![
-                        KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
-                        KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
-                    ],
-                    Action::DeleteLine,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)],
-                    Action::OpenNewLineBelow,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('O'), KeyModifiers::SHIFT)],
-                    Action::OpenNewLineAbove,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE)],
-                    Action::CursorLeft,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE)],
-                    Action::CursorRight,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
-                    Action::CursorLeft,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
-                    Action::CursorRight,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
-                    Action::Escape,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('j'), KeyModifiers::NONE)],
-                    Action::CursorDown,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Down, KeyModifiers::NONE)],
-                    Action::CursorDown,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Char('k'), KeyModifiers::NONE)],
-                    Action::CursorUp,
-                ),
-                (
-                    vec![KeyEvent::new(KeyCode::Up, KeyModifiers::NONE)],
-                    Action::CursorUp,
-                ),
-                (
-                    vec![
-                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
-                        KeyEvent::new(KeyCode::Char('g'), KeyModifiers::NONE),
-                    ],
-                    Action::GoToTopUI,
-                ),
-            ]),
-            normal: HashMap::new(),
+            ui: ui_maps.clone(),
+            normal: ui_maps,
             visual: HashMap::new(),
             typing: HashMap::from([
                 (

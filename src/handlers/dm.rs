@@ -50,7 +50,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 }
                 let prev_line_len = (line_start - 1) - prev_line_start;
 
-                let is_normal = matches!(app.input_state.input_mode, InputMode::UI);
+                let is_normal = matches!(app.input_state.input_mode, InputMode::Normal);
                 let max_col = if is_normal && prev_line_len > 0 {
                     prev_line_len - 1
                 } else {
@@ -86,7 +86,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                     }
                     next_line_len += 1;
                 }
-                let is_normal = matches!(app.input_state.input_mode, InputMode::UI);
+                let is_normal = matches!(app.input_state.input_mode, InputMode::Normal);
                 let max_col = if is_normal && next_line_len > 0 {
                     next_line_len - 1
                 } else {
@@ -95,7 +95,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 app.input_cursor = start + col.min(max_col);
             }
         }
-        Some(Action::Quit) => app.should_quit = true,
+        Some(Action::Quit) => app.go_back_or_quit(),
         Some(Action::EnterCommandMode) => {
             app.command_text.clear();
             app.set_input_mode(InputMode::Command);
@@ -238,28 +238,39 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                     app.input_cursor -= 1;
                 }
             }
-            app.set_input_mode(InputMode::UI);
+            app.set_input_mode(InputMode::Normal);
         }
-        Some(Action::Enter) if matches!(app.input_state.input_mode, InputMode::Insert | InputMode::UI) => {
+        Some(Action::Enter)
+            if matches!(
+                app.input_state.input_mode,
+                InputMode::Insert | InputMode::Normal
+            ) =>
+        {
             let content = app.input_text.trim().to_string();
             if !content.is_empty() {
                 if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
                     let channel_id = channel.id.clone();
                     let api_client = app.api_client.clone();
-                    
+
                     tokio::spawn(async move {
                         #[derive(serde::Serialize)]
                         struct SendMessagePayload {
                             content: String,
                             nonce: String,
                         }
-                        
+
                         let payload = SendMessagePayload {
                             content,
                             nonce: ulid::Ulid::generate().to_string(),
                         };
-                        
-                        if let Err(e) = api_client.post::<serde_json::Value, _>(crate::api::client::Endpoint::SendMessage(channel_id), &payload).await {
+
+                        if let Err(e) = api_client
+                            .post::<serde_json::Value, _>(
+                                crate::api::client::Endpoint::SendMessage(channel_id),
+                                &payload,
+                            )
+                            .await
+                        {
                             log::error!("Failed to send message: {}", e);
                         }
                     });
@@ -267,7 +278,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             }
             app.input_text.clear();
             app.input_cursor = 0;
-            app.set_input_mode(InputMode::UI);
+            app.set_input_mode(InputMode::Normal);
         }
         _ => {}
     }

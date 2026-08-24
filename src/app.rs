@@ -227,7 +227,10 @@ impl App {
     pub fn go_back_or_quit(&mut self) {
         match self.state {
             AppState::DmList => self.state = AppState::LoggedIn,
-            AppState::Dm => self.state = AppState::DmList,
+            AppState::Dm => {
+                self.state = AppState::DmList;
+                self.set_input_mode(InputMode::UI);
+            }
             _ => self.should_quit = true,
         }
     }
