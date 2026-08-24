@@ -8,6 +8,8 @@ pub enum Action {
     EnterCommandMode,
     EnterInsertMode,
     EnterInsertModeAfter,
+    OpenNewLineBelow,
+    OpenNewLineAbove,
     Enter,
     CursorLeft,
     CursorRight,

@@ -383,18 +383,96 @@ impl App {
                 let action = self.input_state.process_key_event(key);
                 match action {
                     Some(Action::CursorLeft) => {
-                        if self.input_cursor > 0 {
+                        let chars: Vec<char> = self.input_text.chars().collect();
+                        if self.input_cursor > 0 && chars.get(self.input_cursor - 1) != Some(&'\n')
+                        {
                             self.input_cursor -= 1;
                         }
                     }
                     Some(Action::CursorRight) => {
-                        let max = if matches!(self.input_state.input_mode, InputMode::Insert) {
-                            self.input_text.chars().count()
-                        } else {
-                            self.input_text.chars().count().saturating_sub(1)
+                        let chars: Vec<char> = self.input_text.chars().collect();
+                        let max_for_line = {
+                            let mut end = self.input_cursor;
+                            while end < chars.len() && chars[end] != '\n' {
+                                end += 1;
+                            }
+                            if matches!(self.input_state.input_mode, InputMode::Insert) {
+                                end
+                            } else {
+                                if end > 0 && chars.get(end - 1) != Some(&'\n') {
+                                    end - 1
+                                } else {
+                                    end
+                                }
+                            }
                         };
-                        if self.input_cursor < max {
+                        if self.input_cursor < max_for_line {
                             self.input_cursor += 1;
+                        }
+                    }
+                    Some(Action::CursorUp) => {
+                        let chars: Vec<char> = self.input_text.chars().collect();
+                        let mut line_start = 0;
+                        for i in (0..self.input_cursor).rev() {
+                            if chars.get(i) == Some(&'\n') {
+                                line_start = i + 1;
+                                break;
+                            }
+                        }
+                        if line_start > 0 {
+                            let col = self.input_cursor - line_start;
+                            let mut prev_line_start = 0;
+                            for i in (0..line_start - 1).rev() {
+                                if chars.get(i) == Some(&'\n') {
+                                    prev_line_start = i + 1;
+                                    break;
+                                }
+                            }
+                            let prev_line_len = (line_start - 1) - prev_line_start;
+
+                            let is_normal = matches!(self.input_state.input_mode, InputMode::UI);
+                            let max_col = if is_normal && prev_line_len > 0 {
+                                prev_line_len - 1
+                            } else {
+                                prev_line_len
+                            };
+
+                            self.input_cursor = prev_line_start + col.min(max_col);
+                        }
+                    }
+                    Some(Action::CursorDown) => {
+                        let chars: Vec<char> = self.input_text.chars().collect();
+                        let mut line_start = 0;
+                        for i in (0..self.input_cursor).rev() {
+                            if chars.get(i) == Some(&'\n') {
+                                line_start = i + 1;
+                                break;
+                            }
+                        }
+                        let col = self.input_cursor - line_start;
+
+                        let mut next_line_start = None;
+                        for (i, c) in chars.iter().enumerate().skip(self.input_cursor) {
+                            if *c == '\n' {
+                                next_line_start = Some(i + 1);
+                                break;
+                            }
+                        }
+                        if let Some(start) = next_line_start {
+                            let mut next_line_len = 0;
+                            for c in chars.iter().skip(start) {
+                                if *c == '\n' {
+                                    break;
+                                }
+                                next_line_len += 1;
+                            }
+                            let is_normal = matches!(self.input_state.input_mode, InputMode::UI);
+                            let max_col = if is_normal && next_line_len > 0 {
+                                next_line_len - 1
+                            } else {
+                                next_line_len
+                            };
+                            self.input_cursor = start + col.min(max_col);
                         }
                     }
                     Some(Action::Quit) => self.should_quit = true,
@@ -409,6 +487,34 @@ impl App {
                         if self.input_cursor < self.input_text.chars().count() {
                             self.input_cursor += 1;
                         }
+                        self.set_input_mode(InputMode::Insert);
+                    }
+                    Some(Action::OpenNewLineBelow) => {
+                        let mut chars: Vec<char> = self.input_text.chars().collect();
+                        let mut insert_idx = chars.len();
+                        for (i, c) in chars.iter().enumerate().skip(self.input_cursor) {
+                            if *c == '\n' {
+                                insert_idx = i;
+                                break;
+                            }
+                        }
+                        chars.insert(insert_idx, '\n');
+                        self.input_text = chars.into_iter().collect();
+                        self.input_cursor = insert_idx + 1;
+                        self.set_input_mode(InputMode::Insert);
+                    }
+                    Some(Action::OpenNewLineAbove) => {
+                        let mut chars: Vec<char> = self.input_text.chars().collect();
+                        let mut insert_idx = 0;
+                        for i in (0..self.input_cursor).rev() {
+                            if chars.get(i) == Some(&'\n') {
+                                insert_idx = i + 1;
+                                break;
+                            }
+                        }
+                        chars.insert(insert_idx, '\n');
+                        self.input_text = chars.into_iter().collect();
+                        self.input_cursor = insert_idx;
                         self.set_input_mode(InputMode::Insert);
                     }
                     Some(Action::AppendCharacter(c)) => {
@@ -431,7 +537,10 @@ impl App {
                         if matches!(self.input_state.input_mode, InputMode::Insert)
                             && self.input_cursor > 0
                         {
-                            self.input_cursor -= 1;
+                            let chars: Vec<char> = self.input_text.chars().collect();
+                            if chars.get(self.input_cursor - 1) != Some(&'\n') {
+                                self.input_cursor -= 1;
+                            }
                         }
                         self.set_input_mode(InputMode::UI);
                     }
