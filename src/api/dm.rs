@@ -85,24 +85,36 @@ pub async fn fetch_dms(
                     let target_id = &user_ids[0];
                     if Some(target_id) == my_user_id.as_ref() {
                         display_name = Some("Saved Messages".to_string());
-                    } else if let Ok(user_val) = api_client
-                        .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
-                        .await
-                        && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
-                    {
-                        display_name = Some(username.to_string());
-
+                    } else {
+                        // Check cache first!
                         if let Ok(uid) = Id::<User>::new(target_id) {
-                            let mut cache_locked = cache.lock().await;
-                            cache_locked
-                                .set(
-                                    uid,
-                                    &User {
-                                        id: target_id.clone(),
-                                        username: username.to_string(),
-                                    },
-                                )
-                                .ok();
+                            let cache_locked = cache.lock().await;
+                            if let Some(cached_user) = cache_locked.get(uid.clone()) {
+                                display_name = Some(cached_user.username);
+                            }
+                        }
+
+                        // Only fetch from API if it wasn't in the cache
+                        if display_name.is_none()
+                            && let Ok(user_val) = api_client
+                                .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
+                                .await
+                            && let Some(username) =
+                                user_val.get("username").and_then(|v| v.as_str())
+                        {
+                            display_name = Some(username.to_string());
+                            if let Ok(uid) = Id::<User>::new(target_id) {
+                                let mut cache_locked = cache.lock().await;
+                                cache_locked
+                                    .set(
+                                        uid,
+                                        &User {
+                                            id: target_id.clone(),
+                                            username: username.to_string(),
+                                        },
+                                    )
+                                    .ok();
+                            }
                         }
                     }
                     if display_name.is_none() {
@@ -116,23 +128,34 @@ pub async fn fetch_dms(
                     };
 
                     if let Some(target_id) = other_id {
-                        if let Ok(user_val) = api_client
-                            .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
-                            .await
-                            && let Some(username) =
-                                user_val.get("username").and_then(|v| v.as_str())
-                        {
-                            display_name = Some(username.to_string());
+                        // Check cache first!
+                        if let Ok(uid) = Id::<User>::new(&target_id) {
+                            let cache_locked = cache.lock().await;
+                            if let Some(cached_user) = cache_locked.get(uid.clone()) {
+                                display_name = Some(cached_user.username);
+                            }
+                        }
 
-                            if let Ok(uid) = Id::<User>::new(&target_id) {
-                                let mut cache_locked = cache.lock().await;
-                                let _ = cache_locked.set(
-                                    uid,
-                                    &User {
-                                        id: target_id.clone(),
-                                        username: username.to_string(),
-                                    },
-                                );
+                        // Only fetch from API if it wasn't in the cache
+                        if display_name.is_none() {
+                            if let Ok(user_val) = api_client
+                                .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
+                                .await
+                                && let Some(username) =
+                                    user_val.get("username").and_then(|v| v.as_str())
+                            {
+                                display_name = Some(username.to_string());
+
+                                if let Ok(uid) = Id::<User>::new(&target_id) {
+                                    let mut cache_locked = cache.lock().await;
+                                    let _ = cache_locked.set(
+                                        uid,
+                                        &User {
+                                            id: target_id.clone(),
+                                            username: username.to_string(),
+                                        },
+                                    );
+                                }
                             }
                         }
                         if display_name.is_none() {
