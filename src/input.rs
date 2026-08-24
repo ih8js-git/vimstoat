@@ -4,7 +4,7 @@ use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 use crate::action::Action;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum InputMode {
     #[allow(unused)]
     Normal,
@@ -15,6 +15,17 @@ pub enum InputMode {
     Command,
     #[allow(unused)]
     Visual,
+}
+
+impl InputMode {
+    pub fn color(&self) -> ratatui::style::Color {
+        match self {
+            InputMode::Normal | InputMode::UI => ratatui::style::Color::Blue,
+            InputMode::Insert => ratatui::style::Color::Yellow,
+            InputMode::Visual => ratatui::style::Color::Magenta,
+            InputMode::Command => ratatui::style::Color::Green,
+        }
+    }
 }
 
 struct KeyMaps {

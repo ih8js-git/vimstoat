@@ -44,7 +44,7 @@ pub fn render(f: &mut Frame, app: &App) {
                 Block::default()
                     .title(" Command ")
                     .borders(Borders::ALL)
-                    .border_style(Style::default().fg(Color::Green)),
+                    .border_style(Style::default().fg(app.input_state.input_mode.color())),
             );
         f.render_widget(cmd_widget, cmd_area);
 

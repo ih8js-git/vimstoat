@@ -9,11 +9,7 @@ use ratatui::{
 pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let total_items = app.store.dm_channels.len();
 
-    let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
-        Color::Green
-    } else {
-        Color::Reset
-    };
+    let border_color = app.input_state.input_mode.color();
 
     if app.is_loading_dms && total_items == 0 {
         let msg = Paragraph::new("Loading Direct Messages...")

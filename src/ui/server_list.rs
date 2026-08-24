@@ -73,11 +73,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let mut state = ListState::default();
     state.select(Some(selected_index));
 
-    let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
-        Color::Green
-    } else {
-        Color::Reset
-    };
+    let border_color = app.input_state.input_mode.color();
 
     let list = List::new(items)
         .block(

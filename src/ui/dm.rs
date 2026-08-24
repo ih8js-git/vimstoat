@@ -7,11 +7,7 @@ use ratatui::{
 };
 
 pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
-    let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
-        Color::Green
-    } else {
-        Color::Reset
-    };
+    let border_color = app.input_state.input_mode.color();
 
     let title = if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
         format!(" Direct Message: {} ", channel.name)
@@ -117,12 +113,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     f.render_widget(msg_paragraph, messages_area);
 
-    let input_border_color =
-        if matches!(app.input_state.input_mode, crate::input::InputMode::Insert) {
-            Color::Cyan
-        } else {
-            Color::Reset
-        };
+    let input_border_color = app.input_state.input_mode.color();
 
     let input_block = Block::default()
         .title(" Message [Visual Only - Not hooked to API] (Type 'i' to insert, ESC for normal) ")
