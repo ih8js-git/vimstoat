@@ -145,8 +145,16 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
                 tokio::spawn(async move {
                     if let Some(channel_id) = msg_val.get("channel").and_then(|v| v.as_str()) {
-                        let id = msg_val.get("_id").and_then(|v| v.as_str()).unwrap_or("unknown").to_string();
-                        let author_id = msg_val.get("author").and_then(|v| v.as_str()).unwrap_or("Unknown").to_string();
+                        let id = msg_val
+                            .get("_id")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("unknown")
+                            .to_string();
+                        let author_id = msg_val
+                            .get("author")
+                            .and_then(|v| v.as_str())
+                            .unwrap_or("Unknown")
+                            .to_string();
                         let channel_id = channel_id.to_string();
 
                         let mut author_name = author_id.clone();
@@ -156,9 +164,12 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
                             author_name = user.username.clone();
                         } else if author_id != "Unknown" {
                             if let Ok(user_val) = api_client
-                                .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))
+                                .get::<serde_json::Value>(crate::api::client::Endpoint::User(
+                                    author_id.clone(),
+                                ))
                                 .await
-                                && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
+                                && let Some(username) =
+                                    user_val.get("username").and_then(|v| v.as_str())
                             {
                                 author_name = username.to_string();
                                 let new_user = crate::models::User {
@@ -169,10 +180,17 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
                             }
                         }
 
-                        let content = if let Some(content_val) = msg_val.get("content").and_then(|v| v.as_str()) {
+                        let content = if let Some(content_val) =
+                            msg_val.get("content").and_then(|v| v.as_str())
+                        {
                             content_val.to_string()
                         } else if let Some(sys) = msg_val.get("system") {
-                            format!("[System message: {}]", sys.get("type").and_then(|v| v.as_str()).unwrap_or("unknown"))
+                            format!(
+                                "[System message: {}]",
+                                sys.get("type")
+                                    .and_then(|v| v.as_str())
+                                    .unwrap_or("unknown")
+                            )
                         } else {
                             "[Unsupported message]".to_string()
                         };
@@ -184,9 +202,35 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
                             content,
                         };
 
-                        app_tx.send(app::AppEvent::NewMessage { channel_id, message, new_user: new_user_fetched }).await.ok();
+                        app_tx
+                            .send(app::AppEvent::NewMessage {
+                                channel_id,
+                                message,
+                                new_user: new_user_fetched,
+                            })
+                            .await
+                            .ok();
                     }
                 });
+            } else if let crate::api::events::ServerEvent::MessageUpdate { id, channel, data } =
+                &event
+            {
+                if let Some(content) = data.get("content").and_then(|v| v.as_str()) {
+                    app.app_tx
+                        .try_send(app::AppEvent::MessageUpdated {
+                            channel_id: channel.clone(),
+                            message_id: id.clone(),
+                            content: content.to_string(),
+                        })
+                        .ok();
+                }
+            } else if let crate::api::events::ServerEvent::MessageDelete { id, channel } = &event {
+                app.app_tx
+                    .try_send(app::AppEvent::MessageDeleted {
+                        channel_id: channel.clone(),
+                        message_id: id.clone(),
+                    })
+                    .ok();
             }
         }
     }

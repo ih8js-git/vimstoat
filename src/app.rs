@@ -29,6 +29,15 @@ pub enum AppEvent {
         message: crate::models::Message,
         new_user: Option<crate::models::User>,
     },
+    MessageUpdated {
+        channel_id: String,
+        message_id: String,
+        content: String,
+    },
+    MessageDeleted {
+        channel_id: String,
+        message_id: String,
+    },
 }
 
 pub enum AppState {
@@ -137,23 +146,79 @@ impl App {
                 self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
             }
-            AppEvent::NewMessage { channel_id, message, new_user } => {
+            AppEvent::NewMessage {
+                channel_id,
+                message,
+                new_user,
+            } => {
                 if let Some(user) = new_user {
                     self.store.users.insert(user.id.clone(), user);
                 }
 
-                let is_active_channel = matches!(self.state, AppState::Dm) 
-                    && self.store.dm_channels.get(self.selected_dm_index).map(|c| &c.id) == Some(&channel_id);
+                let is_active_channel = matches!(self.state, AppState::Dm)
+                    && self
+                        .store
+                        .dm_channels
+                        .get(self.selected_dm_index)
+                        .map(|c| &c.id)
+                        == Some(&channel_id);
 
                 if is_active_channel {
                     self.store.current_dm_messages.insert(0, message.clone()); // newest is at 0 (rev order in UI)
                 }
 
-                if let Some(channel) = self.store.dm_channels.iter_mut().find(|c| c.id == channel_id) {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
                     if !is_active_channel {
                         channel.has_unread = true;
                     }
                     channel.last_message_preview = Some(message.content);
+                }
+            }
+            AppEvent::MessageUpdated {
+                channel_id,
+                message_id,
+                content,
+            } => {
+                let is_active_channel = matches!(self.state, AppState::Dm)
+                    && self
+                        .store
+                        .dm_channels
+                        .get(self.selected_dm_index)
+                        .map(|c| &c.id)
+                        == Some(&channel_id);
+
+                if is_active_channel {
+                    if let Some(msg) = self
+                        .store
+                        .current_dm_messages
+                        .iter_mut()
+                        .find(|m| m.id == message_id)
+                    {
+                        msg.content = content;
+                    }
+                }
+            }
+            AppEvent::MessageDeleted {
+                channel_id,
+                message_id,
+            } => {
+                let is_active_channel = matches!(self.state, AppState::Dm)
+                    && self
+                        .store
+                        .dm_channels
+                        .get(self.selected_dm_index)
+                        .map(|c| &c.id)
+                        == Some(&channel_id);
+
+                if is_active_channel {
+                    self.store
+                        .current_dm_messages
+                        .retain(|m| m.id != message_id);
                 }
             }
         }
