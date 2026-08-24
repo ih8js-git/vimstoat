@@ -15,8 +15,8 @@ pub async fn handle(app: &mut App, key: KeyEvent) {
                     Ok(client) => match app.auth.store_token(&app.input_text).await {
                         Ok(_) => {
                             app.api_client = client;
-                            if let Err(e) = app.authenticate_ws(&app.api_client.clone_token()).await
-                            {
+                            let token = app.api_client.clone_token();
+                            if let Err(e) = app.authenticate_ws(&token).await {
                                 app.state = AppState::Error(e);
                                 return;
                             }

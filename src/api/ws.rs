@@ -21,8 +21,8 @@ pub struct WsClient {
 
 impl WsClient {
     pub async fn connect(base_url: Option<String>) -> Result<(Self, mpsc::Receiver<ServerEvent>)> {
-        let (ws_stream, _) =
-            connect_async(base_url.unwrap_or(WS_BASE_URL.to_string()).as_str()).await?;
+        let url = base_url.unwrap_or_else(|| WS_BASE_URL.to_string());
+        let (ws_stream, _) = connect_async(&url).await?;
         let (mut write, mut read) = ws_stream.split();
 
         let (tx_outgoing, mut rx_outgoing) = mpsc::channel::<ClientEvent>(OUTGOING_BUFFER_SIZE);

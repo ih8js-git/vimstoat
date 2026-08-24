@@ -67,7 +67,8 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
     let mut app = App::new(api_base_url.clone(), ws_base_url.clone()).await?;
 
     if matches!(app.state, app::AppState::LoggedIn) {
-        app.authenticate_ws(&app.api_client.clone_token()).await?;
+        let token = app.api_client.clone_token();
+        app.authenticate_ws(&token).await?;
 
         if let Ok(me_val) = app
             .api_client
@@ -112,7 +113,8 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
             debug!("Received WebSocket event: {event:?}");
             api::ws::EventHandler::new(&mut app.store.servers).handle_event(&event);
 
-            if let crate::api::events::ServerEvent::Message(msg_val) = event {
+            if let crate::api::events::ServerEvent::Message(msg_val) = &event {
+                let msg_val = msg_val.clone();
                 let api_client = app.api_client.clone();
                 let app_tx = app.app_tx.clone();
                 let local_users = app.store.users.clone();
