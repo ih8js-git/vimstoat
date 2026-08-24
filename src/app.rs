@@ -145,9 +145,9 @@ impl App {
         self.input_state.change_input_mode(new_mode);
         let style = match new_mode {
             InputMode::Insert | InputMode::Command => {
-                ratatui::crossterm::cursor::SetCursorStyle::SteadyBar
+                ratatui::crossterm::cursor::SetCursorStyle::BlinkingBar
             }
-            _ => ratatui::crossterm::cursor::SetCursorStyle::SteadyBlock,
+            _ => ratatui::crossterm::cursor::SetCursorStyle::BlinkingBlock,
         };
         let _ = ratatui::crossterm::execute!(std::io::stdout(), style);
     }

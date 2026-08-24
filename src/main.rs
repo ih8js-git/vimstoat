@@ -58,7 +58,7 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         ratatui::crossterm::event::PushKeyboardEnhancementFlags(
             ratatui::crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
         ),
-        ratatui::crossterm::cursor::SetCursorStyle::SteadyBlock
+        ratatui::crossterm::cursor::SetCursorStyle::BlinkingBlock
     )
     .ok();
 
