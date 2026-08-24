@@ -31,6 +31,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
         }
         Some(Action::Enter) if !app.store.dm_channels.is_empty() => {
             let channel_id = app.store.dm_channels[app.selected_dm_index].id.clone();
+            app.store.dm_channels[app.selected_dm_index].has_unread = false;
             app.state = AppState::Dm;
             app.is_loading_messages = true;
             app.store.current_dm_messages.clear();

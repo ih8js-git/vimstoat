@@ -11,6 +11,9 @@ pub struct Server {
 pub struct DirectMessageChannel {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub has_unread: bool,
+    pub last_message_preview: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]

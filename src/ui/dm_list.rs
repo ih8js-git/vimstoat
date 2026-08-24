@@ -73,10 +73,25 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             Style::default().fg(Color::Cyan)
         };
 
-        items.push(ListItem::new(Line::from(vec![
+        let mut spans = vec![
             Span::styled(line_num_str, num_style),
             Span::styled(channel.name.as_str(), text_style),
-        ])));
+        ];
+
+        if channel.has_unread {
+            spans.push(Span::styled(" [*]", Style::default().fg(Color::Red).add_modifier(Modifier::BOLD)));
+        }
+
+        if let Some(preview) = &channel.last_message_preview {
+            let mut short_preview = preview.replace('\n', " ");
+            if short_preview.len() > 30 {
+                short_preview.truncate(27);
+                short_preview.push_str("...");
+            }
+            spans.push(Span::styled(format!(" - {}", short_preview), Style::default().fg(Color::DarkGray)));
+        }
+
+        items.push(ListItem::new(Line::from(spans)));
     }
 
     let mut state = ListState::default();

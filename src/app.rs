@@ -141,11 +141,19 @@ impl App {
                 if let Some(user) = new_user {
                     self.store.users.insert(user.id.clone(), user);
                 }
-                // Only append if it belongs to the currently viewed channel
-                if matches!(self.state, AppState::Dm) 
-                    && self.store.dm_channels.get(self.selected_dm_index).map(|c| &c.id) == Some(&channel_id) 
-                {
-                    self.store.current_dm_messages.insert(0, message); // newest is at 0 (rev order in UI)
+
+                let is_active_channel = matches!(self.state, AppState::Dm) 
+                    && self.store.dm_channels.get(self.selected_dm_index).map(|c| &c.id) == Some(&channel_id);
+
+                if is_active_channel {
+                    self.store.current_dm_messages.insert(0, message.clone()); // newest is at 0 (rev order in UI)
+                }
+
+                if let Some(channel) = self.store.dm_channels.iter_mut().find(|c| c.id == channel_id) {
+                    if !is_active_channel {
+                        channel.has_unread = true;
+                    }
+                    channel.last_message_preview = Some(message.content);
                 }
             }
         }
