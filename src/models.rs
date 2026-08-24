@@ -12,3 +12,9 @@ pub struct DirectMessageChannel {
     pub id: String,
     pub name: String,
 }
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
+pub struct User {
+    pub id: String,
+    pub username: String,
+}

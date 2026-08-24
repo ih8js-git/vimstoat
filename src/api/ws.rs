@@ -96,6 +96,7 @@ impl<'a> EventHandler<'a> {
     }
 
     pub fn handle_event(&mut self, event: &ServerEvent) {
+        #[allow(clippy::single_match)]
         match event {
             ServerEvent::Ready { servers, .. } => {
                 self.handle_ready(servers.as_deref());

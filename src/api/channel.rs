@@ -42,7 +42,7 @@ pub async fn fetch_message_history(
             params.push(format!("nearby={}", nearby));
         }
         if !params.is_empty() {
-            path.push_str("?");
+            path.push('?');
             path.push_str(&params.join("&"));
         }
     }
