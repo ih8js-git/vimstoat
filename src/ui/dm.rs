@@ -116,7 +116,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let input_border_color = app.input_state.input_mode.color();
 
     let input_block = Block::default()
-        .title(" Message [Visual Only - Not hooked to API] (Type 'i' to insert, ESC for normal) ")
+        .title(" Message (Type 'i' to insert, ESC for normal) ")
         .borders(Borders::ALL)
         .border_style(Style::default().fg(input_border_color));
 

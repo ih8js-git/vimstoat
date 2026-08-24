@@ -77,6 +77,36 @@ impl ApiClient {
         }
     }
 
+    pub async fn post<T: DeserializeOwned, B: serde::Serialize>(
+        &self,
+        endpoint: Endpoint,
+        body: &B,
+    ) -> Result<T> {
+        let url = format!("{}{}", self.base_url, endpoint.path());
+
+        let response = self
+            .client
+            .post(&url)
+            .header("X-Session-Token", &self.token)
+            .json(body)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            let data = response.json::<T>().await?;
+            Ok(data)
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "API POST request to {:?} failed: {} - {}",
+                endpoint,
+                status,
+                text
+            ))
+        }
+    }
+
     pub fn clone_token(&self) -> String {
         self.token.clone()
     }

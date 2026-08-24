@@ -240,8 +240,31 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             }
             app.set_input_mode(InputMode::UI);
         }
-        Some(Action::Enter) if matches!(app.input_state.input_mode, InputMode::Insert) => {
-            // TODO: Actually send the message over WS/HTTP
+        Some(Action::Enter) if matches!(app.input_state.input_mode, InputMode::Insert | InputMode::UI) => {
+            let content = app.input_text.trim().to_string();
+            if !content.is_empty() {
+                if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
+                    let channel_id = channel.id.clone();
+                    let api_client = app.api_client.clone();
+                    
+                    tokio::spawn(async move {
+                        #[derive(serde::Serialize)]
+                        struct SendMessagePayload {
+                            content: String,
+                            nonce: String,
+                        }
+                        
+                        let payload = SendMessagePayload {
+                            content,
+                            nonce: ulid::Ulid::generate().to_string(),
+                        };
+                        
+                        if let Err(e) = api_client.post::<serde_json::Value, _>(crate::api::client::Endpoint::SendMessage(channel_id), &payload).await {
+                            log::error!("Failed to send message: {}", e);
+                        }
+                    });
+                }
+            }
             app.input_text.clear();
             app.input_cursor = 0;
             app.set_input_mode(InputMode::UI);
