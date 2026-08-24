@@ -60,6 +60,14 @@ impl Default for KeyMaps {
                     Action::EnterInsertModeAfter,
                 ),
                 (
+                    vec![KeyEvent::new(KeyCode::Char('I'), KeyModifiers::SHIFT)],
+                    Action::EnterInsertModeLineStart,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Char('A'), KeyModifiers::SHIFT)],
+                    Action::EnterInsertModeLineEnd,
+                ),
+                (
                     vec![
                         KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
                         KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),

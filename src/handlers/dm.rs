@@ -109,6 +109,30 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             }
             app.set_input_mode(InputMode::Insert);
         }
+        Some(Action::EnterInsertModeLineStart) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let mut line_start = 0;
+            for i in (0..app.input_cursor).rev() {
+                if chars.get(i) == Some(&'\n') {
+                    line_start = i + 1;
+                    break;
+                }
+            }
+            app.input_cursor = line_start;
+            app.set_input_mode(InputMode::Insert);
+        }
+        Some(Action::EnterInsertModeLineEnd) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let mut line_end = chars.len();
+            for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                if *c == '\n' {
+                    line_end = i;
+                    break;
+                }
+            }
+            app.input_cursor = line_end;
+            app.set_input_mode(InputMode::Insert);
+        }
         Some(Action::OpenNewLineBelow) => {
             let mut chars: Vec<char> = app.input_text.chars().collect();
             let mut insert_idx = chars.len();
