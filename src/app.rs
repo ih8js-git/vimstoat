@@ -201,7 +201,7 @@ impl App {
                             let app_tx = self.app_tx.clone();
 
                             tokio::spawn(async move {
-                                match crate::api::dms::fetch_dms(&api_client, cache).await {
+                                match crate::api::dm::fetch_dms(&api_client, cache).await {
                                     Ok(dms) => {
                                         app_tx.send(AppEvent::DmsLoaded(dms)).await.ok();
                                     }
