@@ -27,4 +27,9 @@ pub fn render(f: &mut Frame, app: &App) {
     let input_block = Paragraph::new(app.input_text.as_str())
         .block(Block::default().title(" User Token ").borders(Borders::ALL));
     f.render_widget(input_block, chunks[1]);
+
+    f.set_cursor_position(ratatui::layout::Position::new(
+        chunks[1].x + 1 + app.input_text.chars().count() as u16,
+        chunks[1].y + 1,
+    ));
 }

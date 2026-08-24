@@ -141,6 +141,17 @@ impl App {
         }
     }
 
+    pub fn set_input_mode(&mut self, new_mode: InputMode) {
+        self.input_state.change_input_mode(new_mode);
+        let style = match new_mode {
+            InputMode::Insert | InputMode::Command => {
+                ratatui::crossterm::cursor::SetCursorStyle::SteadyBar
+            }
+            _ => ratatui::crossterm::cursor::SetCursorStyle::SteadyBlock,
+        };
+        let _ = ratatui::crossterm::execute!(std::io::stdout(), style);
+    }
+
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         if matches!(self.input_state.input_mode, InputMode::Command) {
             let action = self.input_state.process_key_event(key);
@@ -153,14 +164,14 @@ impl App {
                 }
                 Some(Action::Escape) => {
                     self.command_text.clear();
-                    self.input_state.change_input_mode(InputMode::UI);
+                    self.set_input_mode(InputMode::UI);
                 }
                 Some(Action::Enter) => {
                     if let Some(cmd) = Command::parse(&self.command_text) {
                         cmd.execute(self);
                     }
                     self.command_text.clear();
-                    self.input_state.change_input_mode(InputMode::UI);
+                    self.set_input_mode(InputMode::UI);
                 }
                 _ => {}
             }
@@ -209,7 +220,7 @@ impl App {
                     Some(Action::Quit) => self.should_quit = true,
                     Some(Action::EnterCommandMode) => {
                         self.command_text.clear();
-                        self.input_state.change_input_mode(InputMode::Command);
+                        self.set_input_mode(InputMode::Command);
                     }
                     Some(Action::Enter) => {
                         if self.selected_index == 0 {
@@ -256,7 +267,7 @@ impl App {
                     Some(Action::Quit) => self.should_quit = true,
                     Some(Action::EnterCommandMode) => {
                         self.command_text.clear();
-                        self.input_state.change_input_mode(InputMode::Command);
+                        self.set_input_mode(InputMode::Command);
                     }
                     Some(Action::CursorUp) => {
                         if self.selected_dm_index > 0 {
@@ -369,11 +380,11 @@ impl App {
                     Some(Action::Quit) => self.should_quit = true,
                     Some(Action::EnterCommandMode) => {
                         self.command_text.clear();
-                        self.input_state.change_input_mode(InputMode::Command);
+                        self.set_input_mode(InputMode::Command);
                     }
                     Some(Action::EnterInsertMode) => {
                         self.input_text.clear();
-                        self.input_state.change_input_mode(InputMode::Insert);
+                        self.set_input_mode(InputMode::Insert);
                     }
                     Some(Action::AppendCharacter(c)) => {
                         self.input_text.push(c);
@@ -382,14 +393,14 @@ impl App {
                         self.input_text.pop();
                     }
                     Some(Action::Escape) => {
-                        self.input_state.change_input_mode(InputMode::UI);
+                        self.set_input_mode(InputMode::UI);
                     }
                     Some(Action::Enter)
                         if matches!(self.input_state.input_mode, InputMode::Insert) =>
                     {
                         // TODO: Actually send the message over WS/HTTP
                         self.input_text.clear();
-                        self.input_state.change_input_mode(InputMode::UI);
+                        self.set_input_mode(InputMode::UI);
                     }
                     _ => {}
                 }

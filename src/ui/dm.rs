@@ -135,7 +135,10 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     f.render_widget(input_paragraph, input_area);
 
-    if matches!(app.input_state.input_mode, crate::input::InputMode::Insert) {
+    if matches!(
+        app.input_state.input_mode,
+        crate::input::InputMode::Insert | crate::input::InputMode::UI
+    ) {
         let current_line = split_lines.last().unwrap_or(&"");
         let current_line_chars = current_line.chars().count();
 

@@ -47,5 +47,11 @@ pub fn render(f: &mut Frame, app: &App) {
                     .border_style(Style::default().fg(Color::Green)),
             );
         f.render_widget(cmd_widget, cmd_area);
+
+        // Ensure cursor is placed within the command input box
+        f.set_cursor_position(ratatui::layout::Position::new(
+            cmd_area.x + 2 + app.command_text.chars().count() as u16,
+            cmd_area.y + 1,
+        ));
     }
 }
