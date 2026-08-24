@@ -37,6 +37,13 @@ pub enum AppState {
     Error(anyhow::Error),
 }
 
+#[derive(Default)]
+pub struct AppStore {
+    pub servers: Vec<Server>,
+    pub dm_channels: Vec<DirectMessageChannel>,
+    pub current_dm_messages: Vec<crate::models::Message>,
+}
+
 pub struct App {
     pub state: AppState,
     pub input_text: String,
@@ -49,12 +56,10 @@ pub struct App {
     pub ws_client: WsClient,
     pub ws_rx: Receiver<ServerEvent>,
     pub cache: Arc<Mutex<CacheStore>>,
-    pub servers: Vec<Server>,
+    pub store: AppStore,
     pub selected_index: usize,
-    pub dm_channels: Vec<DirectMessageChannel>,
     pub selected_dm_index: usize,
     pub is_loading_dms: bool,
-    pub current_dm_messages: Vec<crate::models::Message>,
     pub is_loading_messages: bool,
     pub app_tx: Sender<AppEvent>,
     pub app_rx: Receiver<AppEvent>,
@@ -94,12 +99,10 @@ impl App {
             ws_client,
             ws_rx,
             cache,
-            servers: Vec::new(),
+            store: AppStore::default(),
             selected_index: 0,
-            dm_channels: Vec::new(),
             selected_dm_index: 0,
             is_loading_dms: false,
-            current_dm_messages: Vec::new(),
             is_loading_messages: false,
             app_tx,
             app_rx,
@@ -110,11 +113,11 @@ impl App {
     pub fn handle_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::DmsLoaded(dms) => {
-                self.dm_channels = dms;
+                self.store.dm_channels = dms;
                 self.is_loading_dms = false;
             }
             AppEvent::DmMessagesLoaded(messages) => {
-                self.current_dm_messages = messages;
+                self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
             }
         }
@@ -226,7 +229,7 @@ impl App {
                         }
                     }
                     Some(Action::CursorDown) => {
-                        let total_items = 1 + self.servers.len();
+                        let total_items = 1 + self.store.servers.len();
                         if total_items > 0 && self.selected_index + 1 < total_items {
                             self.selected_index += 1;
                         }
@@ -251,7 +254,7 @@ impl App {
                         }
                     }
                     Some(Action::CursorDown) => {
-                        let total_items = self.dm_channels.len();
+                        let total_items = self.store.dm_channels.len();
                         if total_items > 0 && self.selected_dm_index + 1 < total_items {
                             self.selected_dm_index += 1;
                         }
@@ -259,11 +262,11 @@ impl App {
                     Some(Action::GoToTopUI) => {
                         self.selected_dm_index = 0;
                     }
-                    Some(Action::Enter) if !self.dm_channels.is_empty() => {
-                        let channel_id = self.dm_channels[self.selected_dm_index].id.clone();
+                    Some(Action::Enter) if !self.store.dm_channels.is_empty() => {
+                        let channel_id = self.store.dm_channels[self.selected_dm_index].id.clone();
                         self.state = AppState::Dm;
                         self.is_loading_messages = true;
-                        self.current_dm_messages.clear();
+                        self.store.current_dm_messages.clear();
 
                         let api_client = self.api_client.clone();
                         let app_tx = self.app_tx.clone();

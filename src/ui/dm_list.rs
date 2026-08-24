@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
-    let total_items = app.dm_channels.len();
+    let total_items = app.store.dm_channels.len();
 
     let border_color = if matches!(app.input_state.input_mode, crate::input::InputMode::Command) {
         Color::Green
@@ -50,7 +50,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     let mut items: Vec<ListItem> = Vec::new();
 
-    for (i, channel) in app.dm_channels.iter().enumerate() {
+    for (i, channel) in app.store.dm_channels.iter().enumerate() {
         let is_selected = i == selected_index;
         let rel_num = (i as isize - selected_index as isize).unsigned_abs();
         let width = num_digits.max(2);

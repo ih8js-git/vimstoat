@@ -7,7 +7,7 @@ use ratatui::{
 };
 
 pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
-    let total_items = 1 + app.servers.len();
+    let total_items = 1 + app.store.servers.len();
     let selected_index = app.selected_index.min(total_items.saturating_sub(1));
 
     let num_digits = if total_items > 0 {
@@ -51,7 +51,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                 },
             )
         } else {
-            let server_name = &app.servers[i - 1].name;
+            let server_name = &app.store.servers[i - 1].name;
             Span::styled(
                 server_name.as_str(),
                 if is_selected {

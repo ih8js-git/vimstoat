@@ -13,7 +13,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         Color::Reset
     };
 
-    let title = if let Some(channel) = app.dm_channels.get(app.selected_dm_index) {
+    let title = if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
         format!(" Direct Message: {} ", channel.name)
     } else {
         " Direct Message ".to_string()
@@ -32,7 +32,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         return;
     }
 
-    if app.current_dm_messages.is_empty() {
+    if app.store.current_dm_messages.is_empty() {
         let msg = Paragraph::new("No messages found. (Type :q to return)")
             .style(Style::default().fg(Color::DarkGray))
             .block(block);
@@ -44,7 +44,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     // Revolt API returns messages in descending order (newest first).
     // We reverse to render oldest at top and newest at bottom.
-    for msg in app.current_dm_messages.iter().rev() {
+    for msg in app.store.current_dm_messages.iter().rev() {
         let author_span = Span::styled(
             format!("{}: ", msg.author_name),
             Style::default()
