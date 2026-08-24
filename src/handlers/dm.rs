@@ -137,6 +137,60 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             app.input_cursor = insert_idx;
             app.set_input_mode(InputMode::Insert);
         }
+        Some(Action::DeleteLine) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            if !chars.is_empty() {
+                let mut line_start = 0;
+                for i in (0..app.input_cursor).rev() {
+                    if chars.get(i) == Some(&'\n') {
+                        line_start = i + 1;
+                        break;
+                    }
+                }
+
+                let mut line_end = chars.len();
+                for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                    if *c == '\n' {
+                        line_end = i;
+                        break;
+                    }
+                }
+
+                let mut delete_start = line_start;
+                let mut delete_end = line_end;
+
+                if line_end < chars.len() && chars[line_end] == '\n' {
+                    delete_end += 1;
+                } else if line_start > 0 && chars[line_start - 1] == '\n' {
+                    delete_start -= 1;
+                }
+
+                let yank_content: String = chars[line_start..line_end].iter().collect();
+                app.yank_buffer = Some(format!("{}\n", yank_content));
+
+                let mut new_chars = Vec::new();
+                new_chars.extend_from_slice(&chars[0..delete_start]);
+                new_chars.extend_from_slice(&chars[delete_end..chars.len()]);
+
+                app.input_text = new_chars.into_iter().collect();
+
+                let chars_after: Vec<char> = app.input_text.chars().collect();
+                if chars_after.is_empty() {
+                    app.input_cursor = 0;
+                } else if delete_start < chars_after.len() {
+                    app.input_cursor = delete_start;
+                } else {
+                    let mut new_start = 0;
+                    for i in (0..chars_after.len()).rev() {
+                        if chars_after[i] == '\n' {
+                            new_start = i + 1;
+                            break;
+                        }
+                    }
+                    app.input_cursor = new_start;
+                }
+            }
+        }
         Some(Action::AppendCharacter(c)) => {
             let mut chars: Vec<char> = app.input_text.chars().collect();
             if app.input_cursor <= chars.len() {

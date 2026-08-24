@@ -10,6 +10,7 @@ pub enum Action {
     EnterInsertModeAfter,
     OpenNewLineBelow,
     OpenNewLineAbove,
+    DeleteLine,
     Enter,
     CursorLeft,
     CursorRight,

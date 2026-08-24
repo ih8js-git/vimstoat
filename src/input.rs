@@ -60,6 +60,13 @@ impl Default for KeyMaps {
                     Action::EnterInsertModeAfter,
                 ),
                 (
+                    vec![
+                        KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
+                        KeyEvent::new(KeyCode::Char('d'), KeyModifiers::NONE),
+                    ],
+                    Action::DeleteLine,
+                ),
+                (
                     vec![KeyEvent::new(KeyCode::Char('o'), KeyModifiers::NONE)],
                     Action::OpenNewLineBelow,
                 ),
