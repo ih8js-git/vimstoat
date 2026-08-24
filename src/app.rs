@@ -120,6 +120,14 @@ impl App {
         }
     }
 
+    pub fn go_back_or_quit(&mut self) {
+        match self.state {
+            AppState::DmList => self.state = AppState::LoggedIn,
+            AppState::Dm => self.state = AppState::DmList,
+            _ => self.should_quit = true,
+        }
+    }
+
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         if matches!(self.input_state.input_mode, InputMode::Command) {
             let action = self.input_state.process_key_event(key);
@@ -237,9 +245,6 @@ impl App {
                         self.command_text.clear();
                         self.input_state.change_input_mode(InputMode::Command);
                     }
-                    Some(Action::Escape) => {
-                        self.state = AppState::LoggedIn;
-                    }
                     Some(Action::CursorUp) => {
                         if self.selected_dm_index > 0 {
                             self.selected_dm_index -= 1;
@@ -301,9 +306,6 @@ impl App {
                     Some(Action::EnterCommandMode) => {
                         self.command_text.clear();
                         self.input_state.change_input_mode(InputMode::Command);
-                    }
-                    Some(Action::Escape) => {
-                        self.state = AppState::DmList;
                     }
                     _ => {}
                 }

@@ -33,7 +33,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     }
 
     if total_items == 0 {
-        let msg = Paragraph::new("No Direct Messages found. (Press Esc to return)")
+        let msg = Paragraph::new("No Direct Messages found. (Type :q to return)")
             .style(Style::default().fg(Color::DarkGray))
             .block(
                 Block::default()

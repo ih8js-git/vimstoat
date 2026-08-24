@@ -4,6 +4,7 @@ use crate::app::App;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Command {
     Quit,
+    QuitAll,
     Unknown(String),
 }
 
@@ -17,6 +18,7 @@ impl Command {
 
         let cmd = match trimmed {
             "q" | "quit" | "q!" => Command::Quit,
+            "qa" | "qa!" | "qall" | "qall!" => Command::QuitAll,
             other => Command::Unknown(other.to_string()),
         };
 
@@ -26,6 +28,9 @@ impl Command {
     pub fn execute(&self, app: &mut App) {
         match self {
             Command::Quit => {
+                app.go_back_or_quit();
+            }
+            Command::QuitAll => {
                 app.should_quit = true;
             }
             Command::Unknown(cmd_name) => {
@@ -45,6 +50,9 @@ mod tests {
         assert_eq!(Command::parse("quit"), Some(Command::Quit));
         assert_eq!(Command::parse("q!"), Some(Command::Quit));
         assert_eq!(Command::parse("  q  "), Some(Command::Quit));
+        assert_eq!(Command::parse("qa"), Some(Command::QuitAll));
+        assert_eq!(Command::parse("qa!"), Some(Command::QuitAll));
+        assert_eq!(Command::parse("qall"), Some(Command::QuitAll));
     }
 
     #[test]

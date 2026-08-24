@@ -33,7 +33,7 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     }
 
     if app.current_dm_messages.is_empty() {
-        let msg = Paragraph::new("No messages found. (Press Esc to return)")
+        let msg = Paragraph::new("No messages found. (Type :q to return)")
             .style(Style::default().fg(Color::DarkGray))
             .block(block);
         f.render_widget(msg, area);
