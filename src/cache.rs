@@ -78,14 +78,14 @@ impl CacheStore {
         let db = if path.exists() {
             PickleDb::load(
                 &path,
-                pickledb::PickleDbDumpPolicy::AutoDump,
+                pickledb::PickleDbDumpPolicy::DumpUponRequest,
                 pickledb::SerializationMethod::Bin,
             )
             .map_err(CacheError::DbError)?
         } else {
             PickleDb::new(
                 &path,
-                pickledb::PickleDbDumpPolicy::AutoDump,
+                pickledb::PickleDbDumpPolicy::DumpUponRequest,
                 pickledb::SerializationMethod::Bin,
             )
         };
@@ -98,10 +98,28 @@ impl CacheStore {
         let path = dir.join(DB_FILE);
         let db = PickleDb::new(
             &path,
-            pickledb::PickleDbDumpPolicy::AutoDump,
+            pickledb::PickleDbDumpPolicy::DumpUponRequest,
             pickledb::SerializationMethod::Bin,
         );
         Ok(Self { db, path })
+    }
+
+    pub fn dump(&mut self) -> Result<()> {
+        log::info!("Dumping cache to disk...");
+        self.db.dump().map_err(CacheError::DbError)?;
+        Ok(())
+    }
+
+    pub fn get_all_users(&self) -> std::collections::HashMap<String, crate::models::User> {
+        let mut users = std::collections::HashMap::new();
+        for key in self.db.get_all() {
+            if key.starts_with("user:") {
+                if let Some(user) = self.db.get::<crate::models::User>(&key) {
+                    users.insert(user.id.clone(), user);
+                }
+            }
+        }
+        users
     }
 
     pub fn set<V: Serialize + Debug>(&mut self, id: Id<V>, value: &V) -> Result<()> {

@@ -24,8 +24,8 @@ use crate::{
 };
 
 pub enum AppEvent {
-    DmsLoaded(Vec<DirectMessageChannel>),
-    DmMessagesLoaded(Vec<crate::models::Message>),
+    DmsLoaded(Vec<DirectMessageChannel>, Vec<crate::models::User>),
+    DmMessagesLoaded(Vec<crate::models::Message>, Vec<crate::models::User>),
 }
 
 pub enum AppState {
@@ -42,6 +42,7 @@ pub struct AppStore {
     pub servers: Vec<Server>,
     pub dm_channels: Vec<DirectMessageChannel>,
     pub current_dm_messages: Vec<crate::models::Message>,
+    pub users: std::collections::HashMap<String, crate::models::User>,
 }
 
 pub struct App {
@@ -98,8 +99,11 @@ impl App {
             api_client,
             ws_client,
             ws_rx,
-            cache,
-            store: AppStore::default(),
+            cache: cache.clone(),
+            store: AppStore {
+                users: cache.lock().await.get_all_users(),
+                ..Default::default()
+            },
             selected_index: 0,
             selected_dm_index: 0,
             is_loading_dms: false,
@@ -112,11 +116,17 @@ impl App {
 
     pub fn handle_app_event(&mut self, event: AppEvent) {
         match event {
-            AppEvent::DmsLoaded(dms) => {
+            AppEvent::DmsLoaded(dms, new_users) => {
+                for user in new_users {
+                    self.store.users.insert(user.id.clone(), user);
+                }
                 self.store.dm_channels = dms;
                 self.is_loading_dms = false;
             }
-            AppEvent::DmMessagesLoaded(messages) => {
+            AppEvent::DmMessagesLoaded(messages, new_users) => {
+                for user in new_users {
+                    self.store.users.insert(user.id.clone(), user);
+                }
                 self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
             }
@@ -207,14 +217,14 @@ impl App {
                             self.state = AppState::DmList;
                             self.is_loading_dms = true;
 
-                            let cache = self.cache.clone();
+                            let users = self.store.users.clone();
                             let api_client = self.api_client.clone();
                             let app_tx = self.app_tx.clone();
 
                             tokio::spawn(async move {
-                                match crate::api::dm::fetch_dms(&api_client, cache).await {
-                                    Ok(dms) => {
-                                        app_tx.send(AppEvent::DmsLoaded(dms)).await.ok();
+                                match crate::api::dm::fetch_dms(&api_client, &users).await {
+                                    Ok((dms, new_users)) => {
+                                        app_tx.send(AppEvent::DmsLoaded(dms, new_users)).await.ok();
                                     }
                                     Err(e) => {
                                         error!("Error fetching DMs in background: {e}");
@@ -270,7 +280,7 @@ impl App {
 
                         let api_client = self.api_client.clone();
                         let app_tx = self.app_tx.clone();
-                        let cache = self.cache.clone();
+                        let users = self.store.users.clone();
 
                         tokio::spawn(async move {
                             let query = crate::api::channel::MessageHistoryQuery {
@@ -290,7 +300,6 @@ impl App {
                                 Ok(messages_json) => {
                                     let mut parsed_messages =
                                         Vec::with_capacity(messages_json.len());
-                                    let cache_locked = cache.lock().await;
 
                                     for msg in messages_json {
                                         let id = msg
@@ -306,11 +315,8 @@ impl App {
                                             .to_string();
 
                                         let mut author_name = author_id.clone();
-                                        if let Ok(uid) =
-                                            crate::cache::Id::<crate::models::User>::new(&author_id)
-                                            && let Some(cached_user) = cache_locked.get(uid)
-                                        {
-                                            author_name = cached_user.username;
+                                        if let Some(user) = users.get(&author_id) {
+                                            author_name = user.username.clone();
                                         }
 
                                         let content = if let Some(content_val) =
@@ -337,14 +343,17 @@ impl App {
                                     }
 
                                     app_tx
-                                        .send(AppEvent::DmMessagesLoaded(parsed_messages))
+                                        .send(AppEvent::DmMessagesLoaded(
+                                            parsed_messages,
+                                            Vec::new(),
+                                        ))
                                         .await
                                         .ok();
                                 }
                                 Err(e) => {
                                     error!("Error fetching messages: {e}");
                                     app_tx
-                                        .send(AppEvent::DmMessagesLoaded(Vec::new()))
+                                        .send(AppEvent::DmMessagesLoaded(Vec::new(), Vec::new()))
                                         .await
                                         .ok();
                                 }

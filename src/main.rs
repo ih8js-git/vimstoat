@@ -133,6 +133,18 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    {
+        let mut cache_locked = app.cache.lock().await;
+        for user in app.store.users.values() {
+            if let Ok(uid) = crate::cache::Id::<crate::models::User>::new(&user.id) {
+                let _ = cache_locked.set(uid, user);
+            }
+        }
+        if let Err(e) = cache_locked.dump() {
+            log::error!("Failed to dump cache to disk: {}", e);
+        }
+    }
+
     ratatui::restore();
     Ok(())
 }

@@ -1,18 +1,13 @@
-use std::sync::Arc;
-
-use tokio::sync::Mutex;
-
 use crate::{
     Result,
     api::client::{ApiClient, Endpoint},
-    cache::{CacheStore, Id},
     models::{DirectMessageChannel, User},
 };
 
 pub async fn fetch_dms(
     api_client: &ApiClient,
-    cache: Arc<Mutex<CacheStore>>,
-) -> Result<Vec<DirectMessageChannel>> {
+    known_users: &std::collections::HashMap<String, User>,
+) -> Result<(Vec<DirectMessageChannel>, Vec<User>)> {
     let dms_json: Vec<serde_json::Value> = api_client.get(Endpoint::Dms).await?;
 
     let my_user_id = match api_client
@@ -28,6 +23,7 @@ pub async fn fetch_dms(
     };
 
     let mut dm_channels = Vec::new();
+    let mut new_users = Vec::new();
 
     for channel in dms_json {
         let id = channel
@@ -86,15 +82,10 @@ pub async fn fetch_dms(
                     if Some(target_id) == my_user_id.as_ref() {
                         display_name = Some("Saved Messages".to_string());
                     } else {
-                        // Check cache first!
-                        if let Ok(uid) = Id::<User>::new(target_id) {
-                            let cache_locked = cache.lock().await;
-                            if let Some(cached_user) = cache_locked.get(uid.clone()) {
-                                display_name = Some(cached_user.username);
-                            }
+                        if let Some(user) = known_users.get(target_id) {
+                            display_name = Some(user.username.clone());
                         }
 
-                        // Only fetch from API if it wasn't in the cache
                         if display_name.is_none()
                             && let Ok(user_val) = api_client
                                 .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
@@ -103,18 +94,10 @@ pub async fn fetch_dms(
                                 user_val.get("username").and_then(|v| v.as_str())
                         {
                             display_name = Some(username.to_string());
-                            if let Ok(uid) = Id::<User>::new(target_id) {
-                                let mut cache_locked = cache.lock().await;
-                                cache_locked
-                                    .set(
-                                        uid,
-                                        &User {
-                                            id: target_id.clone(),
-                                            username: username.to_string(),
-                                        },
-                                    )
-                                    .ok();
-                            }
+                            new_users.push(User {
+                                id: target_id.clone(),
+                                username: username.to_string(),
+                            });
                         }
                     }
                     if display_name.is_none() {
@@ -128,35 +111,22 @@ pub async fn fetch_dms(
                     };
 
                     if let Some(target_id) = other_id {
-                        // Check cache first!
-                        if let Ok(uid) = Id::<User>::new(&target_id) {
-                            let cache_locked = cache.lock().await;
-                            if let Some(cached_user) = cache_locked.get(uid.clone()) {
-                                display_name = Some(cached_user.username);
-                            }
+                        if let Some(user) = known_users.get(&target_id) {
+                            display_name = Some(user.username.clone());
                         }
 
-                        // Only fetch from API if it wasn't in the cache
-                        if display_name.is_none() {
-                            if let Ok(user_val) = api_client
+                        if display_name.is_none()
+                            && let Ok(user_val) = api_client
                                 .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
                                 .await
-                                && let Some(username) =
-                                    user_val.get("username").and_then(|v| v.as_str())
-                            {
-                                display_name = Some(username.to_string());
-
-                                if let Ok(uid) = Id::<User>::new(&target_id) {
-                                    let mut cache_locked = cache.lock().await;
-                                    let _ = cache_locked.set(
-                                        uid,
-                                        &User {
-                                            id: target_id.clone(),
-                                            username: username.to_string(),
-                                        },
-                                    );
-                                }
-                            }
+                            && let Some(username) =
+                                user_val.get("username").and_then(|v| v.as_str())
+                        {
+                            display_name = Some(username.to_string());
+                            new_users.push(User {
+                                id: target_id.clone(),
+                                username: username.to_string(),
+                            });
                         }
                         if display_name.is_none() {
                             display_name = Some(target_id);
@@ -181,5 +151,5 @@ pub async fn fetch_dms(
         }
     }
 
-    Ok(dm_channels)
+    Ok((dm_channels, new_users))
 }
