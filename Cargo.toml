@@ -21,7 +21,7 @@ dirs = "6.0.0"
 # Notifications
 notify-rust = "4.18.0"
 # WebSockets
-tokio-tungstenite = { version = "0.30.0", features = ["native-tls"] }
+tokio-tungstenite = { version = "0.30.0", default-features = false, features = ["rustls-tls-webpki-roots", "connect"] }
 futures-util = "0.3.31"
 
 keyring-lib = { version = "1.0.3", features = ["tokio"] }
