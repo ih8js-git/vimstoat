@@ -66,25 +66,27 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
     let mut app = App::new(api_base_url.clone(), ws_base_url.clone()).await?;
 
-    app.authenticate_ws(&app.api_client.clone_token()).await?;
+    if matches!(app.state, app::AppState::LoggedIn) {
+        app.authenticate_ws(&app.api_client.clone_token()).await?;
 
-    if let Ok(me_val) = app
-        .api_client
-        .get::<serde_json::Value>(Endpoint::CurrentUser)
-        .await
-        && let (Some(my_id), Some(my_username)) = (
-            me_val.get("_id").and_then(|v| v.as_str()),
-            me_val.get("username").and_then(|v| v.as_str()),
-        )
-        && let Ok(uid) = Id::<crate::models::User>::new(my_id)
-    {
-        let user = crate::models::User {
-            id: my_id.to_string(),
-            username: my_username.to_string(),
-        };
-        let mut cache_locked = app.cache.lock().await;
-        cache_locked.set(uid, &user).ok();
-        app.store.users.insert(user.id.clone(), user);
+        if let Ok(me_val) = app
+            .api_client
+            .get::<serde_json::Value>(Endpoint::CurrentUser)
+            .await
+            && let (Some(my_id), Some(my_username)) = (
+                me_val.get("_id").and_then(|v| v.as_str()),
+                me_val.get("username").and_then(|v| v.as_str()),
+            )
+            && let Ok(uid) = Id::<crate::models::User>::new(my_id)
+        {
+            let user = crate::models::User {
+                id: my_id.to_string(),
+                username: my_username.to_string(),
+            };
+            let mut cache_locked = app.cache.lock().await;
+            cache_locked.set(uid, &user).ok();
+            app.store.users.insert(user.id.clone(), user);
+        }
     }
 
     loop {
