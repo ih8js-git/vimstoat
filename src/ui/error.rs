@@ -9,7 +9,7 @@ pub fn render(f: &mut Frame, message: &str) {
         " Keyring Error "
     } else if message.contains("connect") || message.contains("internet") {
         " Connection Error "
-    } else if message.contains("Invalid token") {
+    } else if message.to_lowercase().contains("invalid token") {
         " Authentication Error "
     } else {
         " Error "
