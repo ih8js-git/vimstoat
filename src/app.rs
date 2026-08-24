@@ -25,7 +25,7 @@ use crate::{
 
 pub enum AppEvent {
     DmsLoaded(Vec<DirectMessageChannel>),
-    DmMessagesLoaded(Vec<serde_json::Value>),
+    DmMessagesLoaded(Vec<crate::models::Message>),
 }
 
 pub enum AppState {
@@ -54,7 +54,7 @@ pub struct App {
     pub dm_channels: Vec<DirectMessageChannel>,
     pub selected_dm_index: usize,
     pub is_loading_dms: bool,
-    pub current_dm_messages: Vec<serde_json::Value>,
+    pub current_dm_messages: Vec<crate::models::Message>,
     pub is_loading_messages: bool,
     pub app_tx: Sender<AppEvent>,
     pub app_rx: Receiver<AppEvent>,
@@ -267,6 +267,7 @@ impl App {
 
                         let api_client = self.api_client.clone();
                         let app_tx = self.app_tx.clone();
+                        let cache = self.cache.clone();
 
                         tokio::spawn(async move {
                             let query = crate::api::channel::MessageHistoryQuery {
@@ -283,8 +284,59 @@ impl App {
                             )
                             .await
                             {
-                                Ok(messages) => {
-                                    app_tx.send(AppEvent::DmMessagesLoaded(messages)).await.ok();
+                                Ok(messages_json) => {
+                                    let mut parsed_messages =
+                                        Vec::with_capacity(messages_json.len());
+                                    let cache_locked = cache.lock().await;
+
+                                    for msg in messages_json {
+                                        let id = msg
+                                            .get("_id")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("unknown")
+                                            .to_string();
+
+                                        let author_id = msg
+                                            .get("author")
+                                            .and_then(|v| v.as_str())
+                                            .unwrap_or("Unknown")
+                                            .to_string();
+
+                                        let mut author_name = author_id.clone();
+                                        if let Ok(uid) =
+                                            crate::cache::Id::<crate::models::User>::new(&author_id)
+                                            && let Some(cached_user) = cache_locked.get(uid)
+                                        {
+                                            author_name = cached_user.username;
+                                        }
+
+                                        let content = if let Some(content_val) =
+                                            msg.get("content").and_then(|v| v.as_str())
+                                        {
+                                            content_val.to_string()
+                                        } else if let Some(sys) = msg.get("system") {
+                                            format!(
+                                                "[System message: {}]",
+                                                sys.get("type")
+                                                    .and_then(|v| v.as_str())
+                                                    .unwrap_or("unknown")
+                                            )
+                                        } else {
+                                            "[Unsupported message]".to_string()
+                                        };
+
+                                        parsed_messages.push(crate::models::Message {
+                                            id,
+                                            author_id,
+                                            author_name,
+                                            content,
+                                        });
+                                    }
+
+                                    app_tx
+                                        .send(AppEvent::DmMessagesLoaded(parsed_messages))
+                                        .await
+                                        .ok();
                                 }
                                 Err(e) => {
                                     error!("Error fetching messages: {e}");

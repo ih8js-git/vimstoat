@@ -18,3 +18,11 @@ pub struct User {
     pub id: String,
     pub username: String,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Message {
+    pub id: String,
+    pub author_id: String,
+    pub author_name: String,
+    pub content: String,
+}

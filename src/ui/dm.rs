@@ -45,39 +45,13 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     // Revolt API returns messages in descending order (newest first).
     // We reverse to render oldest at top and newest at bottom.
     for msg in app.current_dm_messages.iter().rev() {
-        let author_id = msg
-            .get("author")
-            .and_then(|v| v.as_str())
-            .unwrap_or("Unknown");
-
-        let mut display_name = author_id.to_string();
-        if let Ok(uid) = crate::cache::Id::<crate::models::User>::new(author_id)
-            && let Ok(cache_lock) = app.cache.try_lock()
-            && let Some(cached_user) = cache_lock.get(uid)
-        {
-            display_name = cached_user.username;
-        }
-
-        let content_str = if let Some(content) = msg.get("content").and_then(|v| v.as_str()) {
-            content.to_string()
-        } else if let Some(sys) = msg.get("system") {
-            format!(
-                "[System message: {}]",
-                sys.get("type")
-                    .and_then(|v| v.as_str())
-                    .unwrap_or("unknown")
-            )
-        } else {
-            "[Unsupported message]".to_string()
-        };
-
         let author_span = Span::styled(
-            format!("{}: ", display_name),
+            format!("{}: ", msg.author_name),
             Style::default()
                 .fg(Color::Cyan)
                 .add_modifier(Modifier::BOLD),
         );
-        let content_span = Span::raw(content_str);
+        let content_span = Span::raw(&msg.content);
 
         items.push(ListItem::new(Line::from(vec![author_span, content_span])));
     }
