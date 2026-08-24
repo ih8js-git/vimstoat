@@ -371,6 +371,26 @@ impl App {
                         self.command_text.clear();
                         self.input_state.change_input_mode(InputMode::Command);
                     }
+                    Some(Action::EnterInsertMode) => {
+                        self.input_text.clear();
+                        self.input_state.change_input_mode(InputMode::Insert);
+                    }
+                    Some(Action::AppendCharacter(c)) => {
+                        self.input_text.push(c);
+                    }
+                    Some(Action::RemoveCharacter) => {
+                        self.input_text.pop();
+                    }
+                    Some(Action::Escape) => {
+                        self.input_state.change_input_mode(InputMode::UI);
+                    }
+                    Some(Action::Enter)
+                        if matches!(self.input_state.input_mode, InputMode::Insert) =>
+                    {
+                        // TODO: Actually send the message over WS/HTTP
+                        self.input_text.clear();
+                        self.input_state.change_input_mode(InputMode::UI);
+                    }
                     _ => {}
                 }
             }

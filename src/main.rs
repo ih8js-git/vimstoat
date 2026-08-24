@@ -53,6 +53,14 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
 
     let mut terminal = ratatui::init();
 
+    ratatui::crossterm::execute!(
+        std::io::stdout(),
+        ratatui::crossterm::event::PushKeyboardEnhancementFlags(
+            ratatui::crossterm::event::KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+        )
+    )
+    .ok();
+
     let api_base_url = std::env::var("API_BASE_URL").ok();
     let ws_base_url = std::env::var("WS_BASE_URL").ok();
 
@@ -144,6 +152,12 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
             log::error!("Failed to dump cache to disk: {}", e);
         }
     }
+
+    ratatui::crossterm::execute!(
+        std::io::stdout(),
+        ratatui::crossterm::event::PopKeyboardEnhancementFlags
+    )
+    .ok();
 
     ratatui::restore();
     Ok(())

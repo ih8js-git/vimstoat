@@ -41,6 +41,10 @@ impl Default for KeyMaps {
                     Action::Enter,
                 ),
                 (
+                    vec![KeyEvent::new(KeyCode::Char('i'), KeyModifiers::NONE)],
+                    Action::EnterInsertMode,
+                ),
+                (
                     vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
                     Action::Escape,
                 ),
@@ -78,6 +82,14 @@ impl Default for KeyMaps {
                 (
                     vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)],
                     Action::Enter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT)],
+                    Action::AppendCharacter('\n'),
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)],
+                    Action::AppendCharacter('\n'),
                 ),
                 (
                     vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
