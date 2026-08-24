@@ -57,6 +57,8 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 {
                     Ok(messages_json) => {
                         let mut parsed_messages = Vec::with_capacity(messages_json.len());
+                        let mut new_users_fetched = Vec::new();
+                        let mut local_users = users.clone();
 
                         for msg in messages_json {
                             let id = msg
@@ -72,8 +74,22 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                                 .to_string();
 
                             let mut author_name = author_id.clone();
-                            if let Some(user) = users.get(&author_id) {
+                            if let Some(user) = local_users.get(&author_id) {
                                 author_name = user.username.clone();
+                            } else if author_id != "Unknown" {
+                                if let Ok(user_val) = api_client
+                                    .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))
+                                    .await
+                                    && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
+                                {
+                                    author_name = username.to_string();
+                                    let new_user = crate::models::User {
+                                        id: author_id.clone(),
+                                        username: username.to_string(),
+                                    };
+                                    local_users.insert(author_id.clone(), new_user.clone());
+                                    new_users_fetched.push(new_user);
+                                }
                             }
 
                             let content = if let Some(content_val) =
@@ -100,7 +116,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                         }
 
                         app_tx
-                            .send(AppEvent::DmMessagesLoaded(parsed_messages, Vec::new()))
+                            .send(AppEvent::DmMessagesLoaded(parsed_messages, new_users_fetched))
                             .await
                             .ok();
                     }

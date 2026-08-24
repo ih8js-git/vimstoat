@@ -80,16 +80,13 @@ async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
         )
         && let Ok(uid) = Id::<crate::models::User>::new(my_id)
     {
+        let user = crate::models::User {
+            id: my_id.to_string(),
+            username: my_username.to_string(),
+        };
         let mut cache_locked = app.cache.lock().await;
-        cache_locked
-            .set(
-                uid,
-                &crate::models::User {
-                    id: my_id.to_string(),
-                    username: my_username.to_string(),
-                },
-            )
-            .ok();
+        cache_locked.set(uid, &user).ok();
+        app.store.users.insert(user.id.clone(), user);
     }
 
     /* This is an example, for now we have no use for notifications */
