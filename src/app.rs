@@ -288,6 +288,7 @@ impl App {
                         self.state = AppState::Dm;
                         self.is_loading_messages = true;
                         self.store.current_dm_messages.clear();
+                        self.input_text.clear();
 
                         let api_client = self.api_client.clone();
                         let app_tx = self.app_tx.clone();
@@ -383,7 +384,6 @@ impl App {
                         self.set_input_mode(InputMode::Command);
                     }
                     Some(Action::EnterInsertMode) => {
-                        self.input_text.clear();
                         self.set_input_mode(InputMode::Insert);
                     }
                     Some(Action::AppendCharacter(c)) => {
