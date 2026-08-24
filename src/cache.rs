@@ -113,10 +113,10 @@ impl CacheStore {
     pub fn get_all_users(&self) -> std::collections::HashMap<String, crate::models::User> {
         let mut users = std::collections::HashMap::new();
         for key in self.db.get_all() {
-            if key.starts_with("user:") {
-                if let Some(user) = self.db.get::<crate::models::User>(&key) {
-                    users.insert(user.id.clone(), user);
-                }
+            if key.starts_with("user:")
+                && let Some(user) = self.db.get::<crate::models::User>(&key)
+            {
+                users.insert(user.id.clone(), user);
             }
         }
         users

@@ -3,7 +3,7 @@ use ratatui::{
     Frame,
     style::{Color, Modifier, Style},
     text::{Line, Span},
-    widgets::{Block, Borders, List, ListItem, Paragraph},
+    widgets::{Block, Borders, Paragraph},
 };
 
 pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
@@ -40,25 +40,45 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         return;
     }
 
-    let mut items = Vec::new();
+    let mut message_lines = Vec::new();
 
     // Revolt API returns messages in descending order (newest first).
     // We reverse to render oldest at top and newest at bottom.
     for msg in app.store.current_dm_messages.iter().rev() {
-        let author_span = Span::styled(
-            format!("{}: ", msg.author_name),
-            Style::default()
-                .fg(Color::Cyan)
-                .add_modifier(Modifier::BOLD),
-        );
-        let content_span = Span::raw(&msg.content);
-
-        items.push(ListItem::new(Line::from(vec![author_span, content_span])));
+        let mut first = true;
+        for line_str in msg.content.split('\n') {
+            if first {
+                let author_span = Span::styled(
+                    format!("{}: ", msg.author_name),
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                );
+                let content_span = Span::raw(line_str);
+                message_lines.push(Line::from(vec![author_span, content_span]));
+                first = false;
+            } else {
+                message_lines.push(Line::from(vec![Span::raw(line_str)]));
+            }
+        }
     }
 
-    // Calculate the height of the message input box based on lines of text
-    let input_lines = (app.input_text.matches('\n').count() as u16) + 1;
-    let input_height = input_lines + 2; // +2 for borders
+    let text_width = area.width.saturating_sub(2).max(1) as usize;
+    let mut input_lines = 0;
+    let split_lines: Vec<&str> = app.input_text.split('\n').collect();
+
+    for (i, line) in split_lines.iter().enumerate() {
+        let chars = line.chars().count();
+        if i == split_lines.len() - 1 {
+            input_lines += (chars / text_width) + 1;
+        } else if chars == 0 {
+            input_lines += 1;
+        } else {
+            input_lines += chars.div_ceil(text_width);
+        }
+    }
+
+    let input_height = (input_lines as u16) + 2; // +2 for borders
 
     let chunks = ratatui::layout::Layout::default()
         .direction(ratatui::layout::Direction::Vertical)
@@ -71,8 +91,31 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let messages_area = chunks[0];
     let input_area = chunks[1];
 
-    let list = List::new(items).block(block);
-    f.render_widget(list, messages_area);
+    let msg_text_width = messages_area.width.saturating_sub(2).max(1) as usize;
+    let mut total_msg_lines = 0;
+
+    for line in &message_lines {
+        let chars = line
+            .spans
+            .iter()
+            .map(|s| s.content.chars().count())
+            .sum::<usize>();
+        if chars == 0 {
+            total_msg_lines += 1;
+        } else {
+            total_msg_lines += chars.div_ceil(msg_text_width);
+        }
+    }
+
+    let scroll =
+        total_msg_lines.saturating_sub(messages_area.height.saturating_sub(2) as usize) as u16;
+
+    let msg_paragraph = Paragraph::new(message_lines)
+        .block(block)
+        .wrap(ratatui::widgets::Wrap { trim: false })
+        .scroll((scroll, 0));
+
+    f.render_widget(msg_paragraph, messages_area);
 
     let input_border_color =
         if matches!(app.input_state.input_mode, crate::input::InputMode::Insert) {
@@ -86,19 +129,19 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         .borders(Borders::ALL)
         .border_style(Style::default().fg(input_border_color));
 
-    let input_paragraph = Paragraph::new(app.input_text.as_str()).block(input_block);
+    let input_paragraph = Paragraph::new(app.input_text.as_str())
+        .block(input_block)
+        .wrap(ratatui::widgets::Wrap { trim: false });
 
     f.render_widget(input_paragraph, input_area);
 
     if matches!(app.input_state.input_mode, crate::input::InputMode::Insert) {
-        // Find the X and Y offsets for the cursor
-        let lines: Vec<&str> = app.input_text.split('\n').collect();
-        let current_line = lines.last().unwrap_or(&"");
+        let current_line = split_lines.last().unwrap_or(&"");
+        let current_line_chars = current_line.chars().count();
 
-        let cursor_x = input_area.x + 1 + current_line.chars().count() as u16;
-        let cursor_y = input_area.y + 1 + (lines.len() as u16).saturating_sub(1);
+        let cursor_x = input_area.x + 1 + (current_line_chars % text_width) as u16;
+        let cursor_y = input_area.y + 1 + (input_lines as u16).saturating_sub(1);
 
-        // Clamp inside the input_area (avoid panics if text overflows horizontally)
         let clamped_x = cursor_x.min(input_area.x + input_area.width.saturating_sub(2));
         let clamped_y = cursor_y.min(input_area.y + input_area.height.saturating_sub(2));
 
