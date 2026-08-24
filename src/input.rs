@@ -45,6 +45,26 @@ impl Default for KeyMaps {
                     Action::EnterInsertMode,
                 ),
                 (
+                    vec![KeyEvent::new(KeyCode::Char('a'), KeyModifiers::NONE)],
+                    Action::EnterInsertModeAfter,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Char('h'), KeyModifiers::NONE)],
+                    Action::CursorLeft,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Char('l'), KeyModifiers::NONE)],
+                    Action::CursorRight,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Left, KeyModifiers::NONE)],
+                    Action::CursorLeft,
+                ),
+                (
+                    vec![KeyEvent::new(KeyCode::Right, KeyModifiers::NONE)],
+                    Action::CursorRight,
+                ),
+                (
                     vec![KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)],
                     Action::Escape,
                 ),

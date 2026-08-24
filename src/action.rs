@@ -7,6 +7,7 @@ pub enum Action {
     RemoveCharacter,
     EnterCommandMode,
     EnterInsertMode,
+    EnterInsertModeAfter,
     Enter,
     CursorLeft,
     CursorRight,

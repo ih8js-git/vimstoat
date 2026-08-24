@@ -48,6 +48,7 @@ pub struct AppStore {
 pub struct App {
     pub state: AppState,
     pub input_text: String,
+    pub input_cursor: usize,
     pub command_text: String,
     pub auth: Auth,
     pub should_quit: bool,
@@ -92,6 +93,7 @@ impl App {
         Ok(Self {
             state,
             input_text: String::new(),
+            input_cursor: 0,
             command_text: String::new(),
             auth,
             should_quit: false,
@@ -204,9 +206,11 @@ impl App {
                 }
                 KeyCode::Char(c) => {
                     self.input_text.push(c);
+                    self.input_cursor += 1;
                 }
                 KeyCode::Backspace => {
                     self.input_text.pop();
+                    self.input_cursor = self.input_cursor.saturating_sub(1);
                 }
                 KeyCode::Esc => {
                     self.should_quit = true;
@@ -378,6 +382,21 @@ impl App {
             AppState::Dm => {
                 let action = self.input_state.process_key_event(key);
                 match action {
+                    Some(Action::CursorLeft) => {
+                        if self.input_cursor > 0 {
+                            self.input_cursor -= 1;
+                        }
+                    }
+                    Some(Action::CursorRight) => {
+                        let max = if matches!(self.input_state.input_mode, InputMode::Insert) {
+                            self.input_text.chars().count()
+                        } else {
+                            self.input_text.chars().count().saturating_sub(1)
+                        };
+                        if self.input_cursor < max {
+                            self.input_cursor += 1;
+                        }
+                    }
                     Some(Action::Quit) => self.should_quit = true,
                     Some(Action::EnterCommandMode) => {
                         self.command_text.clear();
@@ -386,13 +405,34 @@ impl App {
                     Some(Action::EnterInsertMode) => {
                         self.set_input_mode(InputMode::Insert);
                     }
+                    Some(Action::EnterInsertModeAfter) => {
+                        if self.input_cursor < self.input_text.chars().count() {
+                            self.input_cursor += 1;
+                        }
+                        self.set_input_mode(InputMode::Insert);
+                    }
                     Some(Action::AppendCharacter(c)) => {
-                        self.input_text.push(c);
+                        let mut chars: Vec<char> = self.input_text.chars().collect();
+                        if self.input_cursor <= chars.len() {
+                            chars.insert(self.input_cursor, c);
+                            self.input_text = chars.into_iter().collect();
+                            self.input_cursor += 1;
+                        }
                     }
                     Some(Action::RemoveCharacter) => {
-                        self.input_text.pop();
+                        if self.input_cursor > 0 {
+                            let mut chars: Vec<char> = self.input_text.chars().collect();
+                            chars.remove(self.input_cursor - 1);
+                            self.input_text = chars.into_iter().collect();
+                            self.input_cursor -= 1;
+                        }
                     }
                     Some(Action::Escape) => {
+                        if matches!(self.input_state.input_mode, InputMode::Insert)
+                            && self.input_cursor > 0
+                        {
+                            self.input_cursor -= 1;
+                        }
                         self.set_input_mode(InputMode::UI);
                     }
                     Some(Action::Enter)
@@ -400,6 +440,7 @@ impl App {
                     {
                         // TODO: Actually send the message over WS/HTTP
                         self.input_text.clear();
+                        self.input_cursor = 0;
                         self.set_input_mode(InputMode::UI);
                     }
                     _ => {}

@@ -139,11 +139,43 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         app.input_state.input_mode,
         crate::input::InputMode::Insert | crate::input::InputMode::UI
     ) {
-        let current_line = split_lines.last().unwrap_or(&"");
-        let current_line_chars = current_line.chars().count();
+        let mut cursor_line_idx = 0;
+        let mut cursor_char_idx = 0;
+        let mut chars_counted = 0;
 
-        let cursor_x = input_area.x + 1 + (current_line_chars % text_width) as u16;
-        let cursor_y = input_area.y + 1 + (input_lines as u16).saturating_sub(1);
+        for (i, line) in split_lines.iter().enumerate() {
+            let line_len = line.chars().count();
+            let len_with_nl = if i == split_lines.len() - 1 {
+                line_len
+            } else {
+                line_len + 1
+            };
+
+            if app.input_cursor >= chars_counted && app.input_cursor < chars_counted + len_with_nl {
+                cursor_line_idx = i;
+                cursor_char_idx = app.input_cursor - chars_counted;
+                break;
+            } else if i == split_lines.len() - 1 && app.input_cursor >= chars_counted + len_with_nl
+            {
+                cursor_line_idx = i;
+                cursor_char_idx = line_len;
+            }
+            chars_counted += len_with_nl;
+        }
+
+        let mut base_y_offset = 0;
+        for line in split_lines.iter().take(cursor_line_idx) {
+            let chars = line.chars().count();
+            if chars == 0 {
+                base_y_offset += 1;
+            } else {
+                base_y_offset += chars.div_ceil(text_width);
+            }
+        }
+
+        let cursor_x = input_area.x + 1 + (cursor_char_idx % text_width) as u16;
+        let cursor_y =
+            input_area.y + 1 + base_y_offset as u16 + (cursor_char_idx / text_width) as u16;
 
         let clamped_x = cursor_x.min(input_area.x + input_area.width.saturating_sub(2));
         let clamped_y = cursor_y.min(input_area.y + input_area.height.saturating_sub(2));

@@ -29,7 +29,7 @@ pub fn render(f: &mut Frame, app: &App) {
     f.render_widget(input_block, chunks[1]);
 
     f.set_cursor_position(ratatui::layout::Position::new(
-        chunks[1].x + 1 + app.input_text.chars().count() as u16,
+        chunks[1].x + 1 + app.input_cursor as u16,
         chunks[1].y + 1,
     ));
 }
