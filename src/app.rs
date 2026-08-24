@@ -279,7 +279,7 @@ impl App {
                 }
                 ServerEvent::Error { error } => {
                     error!("Error authenticating: {error}");
-                    return Ok(());
+                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
                 }
                 _ => {}
             }
