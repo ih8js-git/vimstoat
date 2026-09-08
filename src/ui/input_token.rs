@@ -23,8 +23,8 @@ pub fn render(f: &mut Frame, app: &App) {
     )
     .style(Style::default().fg(Color::Yellow));
     f.render_widget(explanation, chunks[0]);
-
-    let input_block = Paragraph::new(app.input_text.as_str())
+    let masked_token = "•".repeat(app.input_text.chars().count()) ;
+    let input_block = Paragraph::new(masked_token)
         .block(Block::default().title(" User Token ").borders(Borders::ALL));
     f.render_widget(input_block, chunks[1]);
 
