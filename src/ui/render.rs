@@ -9,7 +9,7 @@ use ratatui::{
     widgets::{Block, Borders, Paragraph},
 };
 
-use super::{dm, dm_list, error, input_token, server_list, validating_token};
+use super::{dm, dm_list, input_token, server_list, validating_token};
 
 pub fn render(f: &mut Frame, app: &App) {
     let is_command_mode = matches!(app.input_state.input_mode, InputMode::Command);
@@ -30,7 +30,7 @@ pub fn render(f: &mut Frame, app: &App) {
         AppState::LoggedIn => server_list::render(f, app, main_area),
         AppState::DmList => dm_list::render(f, app, main_area),
         AppState::Dm => dm::render(f, app, main_area),
-        AppState::Error(message) => error::render(f, &message.to_string()),
+        AppState::Error(message) => crate::error::render(f, &message.to_string()),
     }
 
     if let Some(cmd_area) = command_area {

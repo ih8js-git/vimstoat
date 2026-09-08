@@ -257,7 +257,7 @@ impl App {
             AppState::LoggedIn => crate::handlers::logged_in::handle(self, key),
             AppState::DmList => crate::handlers::dm_list::handle(self, key),
             AppState::Dm => crate::handlers::dm::handle(self, key),
-            AppState::Error(_) => crate::handlers::error::handle(self, key),
+            AppState::Error(_) => crate::error::handle(self, key),
         }
         Ok(())
     }
