@@ -358,7 +358,7 @@ impl App {
     }
 
     pub fn handle_ws_event(&mut self, event: ServerEvent) {
-        crate::views::ws::handle(self, event);
+        crate::api::ws::handle(self, event);
     }
 
     pub async fn shutdown(&self) {

@@ -4,7 +4,6 @@ pub mod dm;
 pub mod dm_list;
 pub mod error;
 pub mod server_list;
-pub mod ws;
 
 use crate::{
     app::{App, AppState},
