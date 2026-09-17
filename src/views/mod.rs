@@ -59,8 +59,8 @@ pub fn render(f: &mut Frame, app: &App) {
     };
 
     match &app.state {
-        AppState::InputToken => auth::render(f, app),
-        AppState::ValidatingToken => auth::render_validating(f),
+        AppState::NeedsAuth => auth::render(f, app),
+        AppState::ValidationToken => auth::render_validating(f),
         AppState::LoggedIn => server_list::render(f, app, main_area),
         AppState::DmList => dm_list::render(f, app, main_area),
         AppState::Dm => dm::render(f, app, main_area),

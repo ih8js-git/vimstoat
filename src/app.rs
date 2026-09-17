@@ -41,8 +41,8 @@ pub enum AppEvent {
 }
 
 pub enum AppState {
-    InputToken,
-    ValidatingToken,
+    NeedsAuth,
+    ValidationToken,
     LoggedIn,
     DmList,
     Dm,
@@ -104,7 +104,7 @@ impl App {
                 Err(e) => AppState::Error(e),
             }
         } else {
-            AppState::InputToken
+            AppState::NeedsAuth
         };
 
         let (ws_client, ws_rx) = WsClient::connect(ws_base_url).await?;
@@ -267,8 +267,8 @@ impl App {
         }
 
         match self.state {
-            AppState::InputToken => crate::views::auth::handle(self, key).await,
-            AppState::ValidatingToken => {}
+            AppState::NeedsAuth => crate::views::auth::handle(self, key).await,
+            AppState::ValidationToken => {}
             AppState::LoggedIn => crate::views::server_list::handle(self, key),
             AppState::DmList => crate::views::dm_list::handle(self, key),
             AppState::Dm => crate::views::dm::handle(self, key),

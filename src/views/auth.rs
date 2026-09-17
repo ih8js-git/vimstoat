@@ -57,7 +57,7 @@ pub async fn handle(app: &mut App, key: KeyEvent) {
     match key.code {
         KeyCode::Enter => {
             if !app.input_text.is_empty() {
-                app.state = AppState::ValidatingToken;
+                app.state = AppState::ValidationToken;
                 match app
                     .auth
                     .validate_token(&app.input_text, Some(app.api_base_url.clone()))

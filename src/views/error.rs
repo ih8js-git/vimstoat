@@ -52,7 +52,7 @@ impl From<keyring::Error> for AuthError {
 
 pub fn handle(app: &mut App, key: KeyEvent) {
     if matches!(key.code, KeyCode::Char(_) | KeyCode::Esc | KeyCode::Enter) {
-        app.state = AppState::InputToken;
+        app.state = AppState::NeedsAuth;
     }
 }
 
