@@ -1,9 +1,10 @@
 use std::{fs, path::PathBuf};
 
-pub use crate::LOG_FILE;
 use crate::Result;
 
-pub fn create_log_file() -> Result<fs::File> {
+pub const LOG_FILE: &str = "logs";
+
+fn create_log_file() -> Result<fs::File> {
     let mut path = if let Some(mut p) = dirs::cache_dir() {
         p.push(env!("CARGO_PKG_NAME"));
         p
@@ -20,4 +21,14 @@ pub fn create_log_file() -> Result<fs::File> {
         .append(true)
         .open(path)
         .expect("Failed to open log file"))
+}
+
+pub fn init() -> Result<()> {
+    let log_file = create_log_file()?;
+    env_logger::builder()
+        .target(env_logger::Target::Pipe(Box::new(log_file)))
+        .filter_level(log::LevelFilter::Debug)
+        .init();
+
+    Ok(())
 }

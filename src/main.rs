@@ -16,17 +16,11 @@ use app::App;
 use log::debug;
 use ratatui::crossterm::event::{self, Event};
 
-pub const LOG_FILE: &str = "logs";
-
 pub type Result<T> = anyhow::Result<T>;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<(), Box<dyn std::error::Error>> {
-    let log_file = logger::create_log_file()?;
-    env_logger::builder()
-        .target(env_logger::Target::Pipe(Box::new(log_file)))
-        .filter_level(log::LevelFilter::Debug)
-        .init();
+    logger::init()?;
 
     log::info!("Starting vimstoat.");
 
