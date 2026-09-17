@@ -145,6 +145,131 @@ impl App {
         Ok(app)
     }
 
+    pub async fn setup_session(&mut self) -> Result<()> {
+        let token = self.api_client.clone_token();
+        self.authenticate_ws(&token).await?;
+
+        if let Ok(me_val) = self
+            .api_client
+            .get::<serde_json::Value>(Endpoint::CurrentUser)
+            .await
+            && let (Some(my_id), Some(my_username)) = (
+                me_val.get("_id").and_then(|v| v.as_str()),
+                me_val.get("username").and_then(|v| v.as_str()),
+            )
+            && let Ok(uid) = Id::<crate::models::User>::new(my_id)
+        {
+            let user = crate::models::User {
+                id: my_id.to_string(),
+                username: my_username.to_string(),
+            };
+            let mut cache_locked = self.cache.lock().await;
+            cache_locked.set(uid, &user).ok();
+            self.store.users.insert(user.id.clone(), user);
+        }
+
+        Ok(())
+    }
+
+    pub async fn authenticate_ws(&mut self, token: &str) -> Result<()> {
+        self.ws_client
+            .send_event(ClientEvent::Authenticate {
+                token: token.into(),
+            })
+            .await?;
+
+        let mut is_authenticated = false;
+        while let Some(event) = self.ws_rx.recv().await {
+            match event {
+                ServerEvent::Authenticated => {
+                    info!("Successfully authenticated!");
+                    is_authenticated = true;
+                    break;
+                }
+                ServerEvent::Error { error } => {
+                    error!("Error authenticating: {error}");
+                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
+                }
+                _ => {}
+            }
+        }
+
+        if is_authenticated {
+            let tx_ping = self.ws_client.clone_sender();
+
+            tokio::spawn(async move {
+                let mut interval = time::interval(Duration::from_secs(20));
+
+                loop {
+                    interval.tick().await;
+
+                    let timestamp = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64;
+
+                    if tx_ping
+                        .send(ClientEvent::Ping { data: timestamp })
+                        .await
+                        .is_err()
+                    {
+                        warn!("Stopped pinging: channel closed.");
+                        break;
+                    }
+                }
+            });
+
+            debug!("Started pinging every 20s.");
+        }
+
+        Ok(())
+    }
+
+    pub async fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
+        while !self.should_quit {
+            terminal.draw(|f| crate::views::render(f, self))?;
+
+            // Limit poll rate to ~60 FPS
+            if ratatui::crossterm::event::poll(Duration::from_millis(16))?
+                && let Event::Key(key) = ratatui::crossterm::event::read()?
+            {
+                self.handle_key_event(key).await?;
+
+                if self.should_quit {
+                    break;
+                }
+            }
+
+            while let Ok(event) = self.app_rx.try_recv() {
+                self.handle_app_event(event);
+            }
+
+            while let Ok(event) = self.ws_rx.try_recv() {
+                self.handle_ws_event(event);
+            }
+        }
+
+        self.shutdown().await;
+        Ok(())
+    }
+
+    pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        if matches!(self.input_state.input_mode, InputMode::Command) {
+            crate::views::command::handle(self, key);
+            return Ok(());
+        }
+
+        match self.state {
+            AppState::NeedsAuth => crate::views::auth::handle(self, key).await,
+            AppState::ValidationToken => {}
+            AppState::LoggedIn => crate::views::server_list::handle(self, key),
+            AppState::DmList => crate::views::dm_list::handle(self, key),
+            AppState::Dm => crate::views::dm::handle(self, key),
+            AppState::Error(_) => crate::views::error::handle(self, key),
+        }
+        Ok(())
+    }
+
     pub fn handle_app_event(&mut self, event: AppEvent) {
         match event {
             AppEvent::DmsLoaded(dms, new_users) => {
@@ -238,6 +363,22 @@ impl App {
         }
     }
 
+    pub fn handle_ws_event(&mut self, event: ServerEvent) {
+        crate::api::ws::handle(self, event);
+    }
+
+    pub async fn shutdown(&self) {
+        let mut cache_locked = self.cache.lock().await;
+        for user in self.store.users.values() {
+            if let Ok(uid) = Id::<crate::models::User>::new(&user.id) {
+                let _ = cache_locked.set(uid, user);
+            }
+        }
+        if let Err(e) = cache_locked.dump() {
+            error!("Failed to dump cache to disk: {}", e);
+        }
+    }
+
     pub fn go_back_or_quit(&mut self) {
         match self.state {
             AppState::DmList => self.state = AppState::LoggedIn,
@@ -258,146 +399,5 @@ impl App {
             _ => ratatui::crossterm::cursor::SetCursorStyle::BlinkingBlock,
         };
         let _ = ratatui::crossterm::execute!(std::io::stdout(), style);
-    }
-
-    pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        if matches!(self.input_state.input_mode, InputMode::Command) {
-            crate::views::command::handle(self, key);
-            return Ok(());
-        }
-
-        match self.state {
-            AppState::NeedsAuth => crate::views::auth::handle(self, key).await,
-            AppState::ValidationToken => {}
-            AppState::LoggedIn => crate::views::server_list::handle(self, key),
-            AppState::DmList => crate::views::dm_list::handle(self, key),
-            AppState::Dm => crate::views::dm::handle(self, key),
-            AppState::Error(_) => crate::views::error::handle(self, key),
-        }
-        Ok(())
-    }
-
-    pub async fn authenticate_ws(&mut self, token: &str) -> Result<()> {
-        self.ws_client
-            .send_event(ClientEvent::Authenticate {
-                token: token.into(),
-            })
-            .await?;
-
-        let mut is_authenticated = false;
-        while let Some(event) = self.ws_rx.recv().await {
-            match event {
-                ServerEvent::Authenticated => {
-                    info!("Successfully authenticated!");
-                    is_authenticated = true;
-                    break;
-                }
-                ServerEvent::Error { error } => {
-                    error!("Error authenticating: {error}");
-                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
-                }
-                _ => {}
-            }
-        }
-
-        if is_authenticated {
-            let tx_ping = self.ws_client.clone_sender();
-
-            tokio::spawn(async move {
-                let mut interval = time::interval(Duration::from_secs(20));
-
-                loop {
-                    interval.tick().await;
-
-                    let timestamp = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as u64;
-
-                    if tx_ping
-                        .send(ClientEvent::Ping { data: timestamp })
-                        .await
-                        .is_err()
-                    {
-                        warn!("Stopped pinging: channel closed.");
-                        break;
-                    }
-                }
-            });
-
-            debug!("Started pinging every 20s.");
-        }
-
-        Ok(())
-    }
-
-    pub async fn setup_session(&mut self) -> Result<()> {
-        let token = self.api_client.clone_token();
-        self.authenticate_ws(&token).await?;
-
-        if let Ok(me_val) = self
-            .api_client
-            .get::<serde_json::Value>(Endpoint::CurrentUser)
-            .await
-            && let (Some(my_id), Some(my_username)) = (
-                me_val.get("_id").and_then(|v| v.as_str()),
-                me_val.get("username").and_then(|v| v.as_str()),
-            )
-            && let Ok(uid) = Id::<crate::models::User>::new(my_id)
-        {
-            let user = crate::models::User {
-                id: my_id.to_string(),
-                username: my_username.to_string(),
-            };
-            let mut cache_locked = self.cache.lock().await;
-            cache_locked.set(uid, &user).ok();
-            self.store.users.insert(user.id.clone(), user);
-        }
-
-        Ok(())
-    }
-
-    pub fn handle_ws_event(&mut self, event: ServerEvent) {
-        crate::api::ws::handle(self, event);
-    }
-
-    pub async fn shutdown(&self) {
-        let mut cache_locked = self.cache.lock().await;
-        for user in self.store.users.values() {
-            if let Ok(uid) = Id::<crate::models::User>::new(&user.id) {
-                let _ = cache_locked.set(uid, user);
-            }
-        }
-        if let Err(e) = cache_locked.dump() {
-            error!("Failed to dump cache to disk: {}", e);
-        }
-    }
-
-    pub async fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
-        while !self.should_quit {
-            terminal.draw(|f| crate::views::render(f, self))?;
-
-            // Limit poll rate to ~60 FPS
-            if ratatui::crossterm::event::poll(Duration::from_millis(16))?
-                && let Event::Key(key) = ratatui::crossterm::event::read()?
-            {
-                self.handle_key_event(key).await?;
-
-                if self.should_quit {
-                    break;
-                }
-            }
-
-            while let Ok(event) = self.app_rx.try_recv() {
-                self.handle_app_event(event);
-            }
-
-            while let Ok(event) = self.ws_rx.try_recv() {
-                self.handle_ws_event(event);
-            }
-        }
-
-        self.shutdown().await;
-        Ok(())
     }
 }
