@@ -25,6 +25,9 @@ fn create_log_file() -> Result<fs::File> {
 
 pub fn init() -> Result<()> {
     let log_file = create_log_file()?;
+
+    log::info!("Starting vimstoat.");
+
     env_logger::builder()
         .target(env_logger::Target::Pipe(Box::new(log_file)))
         .filter_level(log::LevelFilter::Debug)

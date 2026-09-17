@@ -2,7 +2,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use log::{debug, error, info, warn};
-use ratatui::crossterm::event::KeyEvent;
+use ratatui::crossterm::event::{Event, KeyEvent};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::time;
@@ -12,11 +12,11 @@ use crate::{
     api::{
         API_BASE_URL,
         auth::Auth,
-        client::ApiClient,
+        client::{ApiClient, Endpoint},
         events::{ClientEvent, ServerEvent},
         ws::WsClient,
     },
-    cache::CacheStore,
+    cache::{CacheStore, Id},
     input::{InputMode, InputState},
     models::{DirectMessageChannel, Server},
 };
@@ -81,7 +81,16 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(api_base_url: Option<String>, ws_base_url: Option<String>) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
+        let api_base_url = std::env::var("API_BASE_URL").ok();
+        let ws_base_url = std::env::var("WS_BASE_URL").ok();
+        Self::new_with_urls(api_base_url, ws_base_url).await
+    }
+
+    pub async fn new_with_urls(
+        api_base_url: Option<String>,
+        ws_base_url: Option<String>,
+    ) -> Result<Self> {
         let auth = Auth::new().map_err(|e| anyhow::anyhow!(e))?;
 
         let mut api_client = ApiClient::new(String::new(), api_base_url.clone());
@@ -103,7 +112,7 @@ impl App {
         let cache = Arc::new(Mutex::new(CacheStore::new()?));
         let (app_tx, app_rx) = mpsc::channel::<AppEvent>(32);
 
-        Ok(Self {
+        let mut app = Self {
             state,
             input_text: String::new(),
             input_cursor: 0,
@@ -127,7 +136,13 @@ impl App {
             app_tx,
             app_rx,
             input_state: InputState::default(),
-        })
+        };
+
+        if matches!(app.state, AppState::LoggedIn) {
+            app.setup_session().await?;
+        }
+
+        Ok(app)
     }
 
     pub fn handle_app_event(&mut self, event: AppEvent) {
@@ -247,17 +262,17 @@ impl App {
 
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
         if matches!(self.input_state.input_mode, InputMode::Command) {
-            crate::handlers::command::handle(self, key);
+            crate::views::command::handle(self, key);
             return Ok(());
         }
 
         match self.state {
-            AppState::InputToken => crate::handlers::input_token::handle(self, key).await,
+            AppState::InputToken => crate::views::auth::handle(self, key).await,
             AppState::ValidatingToken => {}
-            AppState::LoggedIn => crate::handlers::logged_in::handle(self, key),
-            AppState::DmList => crate::handlers::dm_list::handle(self, key),
-            AppState::Dm => crate::handlers::dm::handle(self, key),
-            AppState::Error(_) => crate::error::handle(self, key),
+            AppState::LoggedIn => crate::views::server_list::handle(self, key),
+            AppState::DmList => crate::views::dm_list::handle(self, key),
+            AppState::Dm => crate::views::dm::handle(self, key),
+            AppState::Error(_) => crate::views::error::handle(self, key),
         }
         Ok(())
     }
@@ -313,6 +328,76 @@ impl App {
             debug!("Started pinging every 20s.");
         }
 
+        Ok(())
+    }
+
+    pub async fn setup_session(&mut self) -> Result<()> {
+        let token = self.api_client.clone_token();
+        self.authenticate_ws(&token).await?;
+
+        if let Ok(me_val) = self
+            .api_client
+            .get::<serde_json::Value>(Endpoint::CurrentUser)
+            .await
+            && let (Some(my_id), Some(my_username)) = (
+                me_val.get("_id").and_then(|v| v.as_str()),
+                me_val.get("username").and_then(|v| v.as_str()),
+            )
+            && let Ok(uid) = Id::<crate::models::User>::new(my_id)
+        {
+            let user = crate::models::User {
+                id: my_id.to_string(),
+                username: my_username.to_string(),
+            };
+            let mut cache_locked = self.cache.lock().await;
+            cache_locked.set(uid, &user).ok();
+            self.store.users.insert(user.id.clone(), user);
+        }
+
+        Ok(())
+    }
+
+    pub fn handle_ws_event(&mut self, event: ServerEvent) {
+        crate::views::ws::handle(self, event);
+    }
+
+    pub async fn shutdown(&self) {
+        let mut cache_locked = self.cache.lock().await;
+        for user in self.store.users.values() {
+            if let Ok(uid) = Id::<crate::models::User>::new(&user.id) {
+                let _ = cache_locked.set(uid, user);
+            }
+        }
+        if let Err(e) = cache_locked.dump() {
+            error!("Failed to dump cache to disk: {}", e);
+        }
+    }
+
+    pub async fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
+        while !self.should_quit {
+            terminal.draw(|f| crate::views::render(f, self))?;
+
+            // Limit poll rate to ~60 FPS
+            if ratatui::crossterm::event::poll(Duration::from_millis(16))?
+                && let Event::Key(key) = ratatui::crossterm::event::read()?
+            {
+                self.handle_key_event(key).await?;
+
+                if self.should_quit {
+                    break;
+                }
+            }
+
+            while let Ok(event) = self.app_rx.try_recv() {
+                self.handle_app_event(event);
+            }
+
+            while let Ok(event) = self.ws_rx.try_recv() {
+                self.handle_ws_event(event);
+            }
+        }
+
+        self.shutdown().await;
         Ok(())
     }
 }

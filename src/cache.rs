@@ -10,7 +10,7 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     Result,
-    error::{CacheError, IdError},
+    views::error::{CacheError, IdError},
 };
 
 pub const DB_FILE: &str = "cache.db";

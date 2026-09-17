@@ -1,7 +1,7 @@
 use crate::{
     Result,
     api::client::{ApiClient, Endpoint},
-    error::AuthError,
+    views::error::AuthError,
 };
 use keyring::KeyringEntry;
 use serde_json::Value;
