@@ -96,6 +96,22 @@ pub fn handle(app: &mut App, event: ServerEvent) {
             handle_message_update(app, id, channel, data)
         }
         ServerEvent::MessageDelete { id, channel } => handle_message_delete(app, id, channel),
+        ServerEvent::ChannelStartTyping { id, user } => {
+            app.app_tx
+                .try_send(AppEvent::TypingStart {
+                    channel_id: id,
+                    user_id: user,
+                })
+                .ok();
+        }
+        ServerEvent::ChannelStopTyping { id, user } => {
+            app.app_tx
+                .try_send(AppEvent::TypingStop {
+                    channel_id: id,
+                    user_id: user,
+                })
+                .ok();
+        }
         _ => {}
     }
 }

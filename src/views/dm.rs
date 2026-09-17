@@ -117,8 +117,30 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
 
     let input_border_color = app.input_state.input_mode.color();
 
+    let input_title = if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index)
+        && !channel.typing_users.is_empty()
+    {
+        let mut typing_names = Vec::new();
+        for uid in &channel.typing_users {
+            let name = app
+                .store
+                .users
+                .get(uid)
+                .map(|u| u.username.as_str())
+                .unwrap_or("Someone");
+            typing_names.push(name);
+        }
+        let typing_str = typing_names.join(", ");
+        format!(
+            " Message (Type 'i' to insert, ESC for normal) - {} is typing... ",
+            typing_str
+        )
+    } else {
+        " Message (Type 'i' to insert, ESC for normal) ".to_string()
+    };
+
     let input_block = Block::default()
-        .title(" Message (Type 'i' to insert, ESC for normal) ")
+        .title(input_title)
         .borders(Borders::ALL)
         .border_style(Style::default().fg(input_border_color));
 

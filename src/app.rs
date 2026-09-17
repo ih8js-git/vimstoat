@@ -38,6 +38,14 @@ pub enum AppEvent {
         channel_id: String,
         message_id: String,
     },
+    TypingStart {
+        channel_id: String,
+        user_id: String,
+    },
+    TypingStop {
+        channel_id: String,
+        user_id: String,
+    },
 }
 
 pub enum AppState {
@@ -358,6 +366,32 @@ impl App {
                     self.store
                         .current_dm_messages
                         .retain(|m| m.id != message_id);
+                }
+            }
+            AppEvent::TypingStart {
+                channel_id,
+                user_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.typing_users.insert(user_id);
+                }
+            }
+            AppEvent::TypingStop {
+                channel_id,
+                user_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.typing_users.remove(&user_id);
                 }
             }
         }
