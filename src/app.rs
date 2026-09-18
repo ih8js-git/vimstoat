@@ -12,7 +12,7 @@ use crate::{
     api::{
         API_BASE_URL,
         auth::Auth,
-        client::{ApiClient, Endpoint},
+        client::ApiClient,
         events::{ClientEvent, ServerEvent},
         ws::WsClient,
     },
@@ -157,20 +157,9 @@ impl App {
         let token = self.api_client.clone_token();
         self.authenticate_ws(&token).await?;
 
-        if let Ok(me_val) = self
-            .api_client
-            .get::<serde_json::Value>(Endpoint::CurrentUser)
-            .await
-            && let (Some(my_id), Some(my_username)) = (
-                me_val.get("_id").and_then(|v| v.as_str()),
-                me_val.get("username").and_then(|v| v.as_str()),
-            )
-            && let Ok(uid) = Id::<crate::models::User>::new(my_id)
+        if let Ok(user) = crate::api::user::fetch_current_user(&self.api_client).await
+            && let Ok(uid) = Id::<crate::models::User>::new(&user.id)
         {
-            let user = crate::models::User {
-                id: my_id.to_string(),
-                username: my_username.to_string(),
-            };
             let mut cache_locked = self.cache.lock().await;
             cache_locked.set(uid, &user).ok();
             self.store.users.insert(user.id.clone(), user);

@@ -119,17 +119,11 @@ pub async fn fetch_dms(
                         }
 
                         if display_name.is_none()
-                            && let Ok(user_val) = api_client
-                                .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
-                                .await
-                            && let Some(username) =
-                                user_val.get("username").and_then(|v| v.as_str())
+                            && let Ok(user) =
+                                crate::api::user::fetch_user(api_client, target_id).await
                         {
-                            display_name = Some(username.to_string());
-                            new_users.push(User {
-                                id: target_id.clone(),
-                                username: username.to_string(),
-                            });
+                            display_name = Some(user.username.clone());
+                            new_users.push(user);
                         }
                     }
                     if display_name.is_none() {
@@ -148,17 +142,11 @@ pub async fn fetch_dms(
                         }
 
                         if display_name.is_none()
-                            && let Ok(user_val) = api_client
-                                .get::<serde_json::Value>(Endpoint::User(target_id.clone()))
-                                .await
-                            && let Some(username) =
-                                user_val.get("username").and_then(|v| v.as_str())
+                            && let Ok(user) =
+                                crate::api::user::fetch_user(api_client, &target_id).await
                         {
-                            display_name = Some(username.to_string());
-                            new_users.push(User {
-                                id: target_id.clone(),
-                                username: username.to_string(),
-                            });
+                            display_name = Some(user.username.clone());
+                            new_users.push(user);
                         }
                         if display_name.is_none() {
                             display_name = Some(target_id);

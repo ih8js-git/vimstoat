@@ -17,10 +17,25 @@ pub struct DirectMessageChannel {
     pub typing_users: std::collections::HashSet<String>,
 }
 
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, PartialEq, Eq, Default)]
+pub enum UserStatus {
+    Online,
+    Idle,
+    Focus,
+    DoNotDisturb,
+    Invisible,
+    #[default]
+    Offline,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub struct User {
     pub id: String,
     pub username: String,
+    #[serde(default)]
+    pub status: UserStatus,
+    #[serde(default)]
+    pub status_text: Option<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

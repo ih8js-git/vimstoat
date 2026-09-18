@@ -5,7 +5,7 @@ use crate::{
         events::{ClientEvent, ServerEvent},
     },
     app::{App, AppEvent},
-    models::{Message, Server, User},
+    models::{Message, Server},
 };
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
@@ -171,17 +171,10 @@ fn handle_message(app: &mut App, msg_val: serde_json::Value) {
             if let Some(user) = local_users.get(&author_id) {
                 author_name.clone_from(&user.username);
             } else if author_id != "Unknown"
-                && let Ok(user_val) = api_client
-                    .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))
-                    .await
-                && let Some(username) = user_val.get("username").and_then(|v| v.as_str())
+                && let Ok(user) = crate::api::user::fetch_user(&api_client, &author_id).await
             {
-                author_name = username.to_string();
-                let new_user = User {
-                    id: author_id.clone(),
-                    username: username.to_string(),
-                };
-                new_user_fetched = Some(new_user);
+                author_name.clone_from(&user.username);
+                new_user_fetched = Some(user);
             }
 
             let content = if let Some(content_val) = msg_val.get("content").and_then(|v| v.as_str())
