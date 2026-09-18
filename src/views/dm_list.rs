@@ -94,18 +94,6 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             ));
         }
 
-        if let Some(preview) = &channel.last_message_preview {
-            let mut short_preview = preview.replace('\n', " ");
-            if short_preview.chars().count() > 30 {
-                short_preview = short_preview.chars().take(27).collect();
-                short_preview.push_str("...");
-            }
-            spans.push(Span::styled(
-                format!(" - {short_preview}"),
-                Style::default().fg(Color::DarkGray),
-            ));
-        }
-
         items.push(ListItem::new(Line::from(spans)));
     }
 

@@ -13,7 +13,6 @@ pub struct DirectMessageChannel {
     pub name: String,
     #[serde(default)]
     pub has_unread: bool,
-    pub last_message_preview: Option<String>,
     #[serde(skip)]
     pub typing_users: std::collections::HashSet<String>,
 }

@@ -147,7 +147,6 @@ pub async fn fetch_dms(
                 id: id_str.to_string(),
                 name,
                 has_unread: false,
-                last_message_preview: None,
                 typing_users: std::collections::HashSet::new(),
             });
         }

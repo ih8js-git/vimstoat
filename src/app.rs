@@ -321,11 +321,9 @@ impl App {
                     .dm_channels
                     .iter_mut()
                     .find(|c| c.id == channel_id)
+                    && !is_active_channel
                 {
-                    if !is_active_channel {
-                        channel.has_unread = true;
-                    }
-                    channel.last_message_preview = Some(message.content);
+                    channel.has_unread = true;
                 }
             }
             AppEvent::MessageUpdated {
