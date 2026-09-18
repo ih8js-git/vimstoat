@@ -5,7 +5,7 @@ use crate::{
         events::{ClientEvent, ServerEvent},
     },
     app::{App, AppEvent},
-    models::{Message, Server},
+    models::{Message, Server, UserStatus},
 };
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
@@ -93,7 +93,10 @@ pub fn handle(app: &mut App, event: ServerEvent) {
     debug!("Received WebSocket event: {event:?}");
 
     match event {
-        ServerEvent::Ready { servers, .. } => handle_ready(app, servers),
+        ServerEvent::Ready { servers, users, .. } => handle_ready(app, servers, users),
+        ServerEvent::UserUpdate { id, data, clear } => {
+            handle_user_update(app, id, data, clear);
+        }
         ServerEvent::Message(msg_val) => handle_message(app, msg_val),
         ServerEvent::MessageUpdate { id, channel, data } => {
             handle_message_update(app, id, channel, data);
@@ -119,7 +122,19 @@ pub fn handle(app: &mut App, event: ServerEvent) {
     }
 }
 
-fn handle_ready(app: &mut App, servers: Option<Vec<serde_json::Value>>) {
+fn handle_ready(
+    app: &mut App,
+    servers: Option<Vec<serde_json::Value>>,
+    users: Option<Vec<serde_json::Value>>,
+) {
+    if let Some(users) = users {
+        for user_val in users {
+            if let Some(user) = crate::api::user::parse_user(&user_val) {
+                app.store.users.insert(user.id.clone(), user);
+            }
+        }
+    }
+
     if let Some(servers) = servers {
         for server_val in servers {
             let id = server_val
@@ -143,6 +158,57 @@ fn handle_ready(app: &mut App, servers: Option<Vec<serde_json::Value>>) {
                 info!("Stored server in memory: {id_str} => {name_str}");
             }
         }
+    }
+}
+
+fn handle_user_update(
+    app: &mut App,
+    id: String,
+    data: serde_json::Value,
+    clear: Option<Vec<String>>,
+) {
+    if let Some(user) = app.store.users.get_mut(&id) {
+        if let Some(fields_to_clear) = clear {
+            for field in fields_to_clear {
+                match field.as_str() {
+                    "StatusText" => user.status_text = None,
+                    "StatusPresence" => user.status = UserStatus::Offline,
+                    _ => {}
+                }
+            }
+        }
+
+        if let Some(status_val) = data.get("status") {
+            if let Some(presence_str) = status_val.get("presence").and_then(|p| p.as_str()) {
+                user.status = match presence_str {
+                    "Online" => UserStatus::Online,
+                    "Idle" => UserStatus::Idle,
+                    "Focus" => UserStatus::Focus,
+                    "Busy" | "DoNotDisturb" => UserStatus::DoNotDisturb,
+                    "Invisible" => UserStatus::Invisible,
+                    _ => UserStatus::Offline,
+                };
+            }
+
+            if let Some(text_val) = status_val.get("text") {
+                user.status_text = text_val.as_str().map(String::from);
+            }
+        }
+
+        if let Some(is_online) = data.get("online").and_then(|o| o.as_bool()) {
+            if !is_online {
+                user.status = UserStatus::Offline;
+            } else if user.status == UserStatus::Offline {
+                user.status = UserStatus::Online;
+            }
+        }
+
+        info!(
+            "Updated user presence for {id}: status={:?}, text={:?}",
+            user.status, user.status_text
+        );
+    } else if let Some(user) = crate::api::user::parse_user(&data) {
+        app.store.users.insert(id, user);
     }
 }
 
