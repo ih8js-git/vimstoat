@@ -35,9 +35,9 @@ impl UserStatus {
     pub fn bubble(&self) -> (&'static str, ratatui::style::Color) {
         match self {
             Self::Online => (" ●", Color::Green),
-            Self::Idle => (" ●", Color::Yellow),
-            Self::Focus => (" ●", Color::Cyan),
-            Self::DoNotDisturb => (" ●", Color::Red),
+            Self::Idle => (" ◐", Color::Yellow),
+            Self::Focus => (" ◆", Color::Cyan),
+            Self::DoNotDisturb => (" ■", Color::Red),
             Self::Invisible | Self::Offline => (" ○", Color::DarkGray),
         }
     }
