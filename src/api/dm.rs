@@ -63,6 +63,8 @@ pub async fn fetch_dms(
             .or_else(|| channel.get("id"))
             .and_then(|v| v.as_str());
 
+        let mut recipient_id: Option<String> = None;
+
         let mut display_name = channel
             .get("name")
             .and_then(|v| v.as_str())
@@ -76,6 +78,7 @@ pub async fn fetch_dms(
 
             if channel_type == "SavedMessages" {
                 display_name = Some("Saved Messages".to_string());
+                recipient_id = my_user_id.clone();
             } else {
                 let mut user_ids: Vec<String> = Vec::new();
 
@@ -113,7 +116,9 @@ pub async fn fetch_dms(
                     let target_id = &user_ids[0];
                     if Some(target_id) == my_user_id.as_ref() {
                         display_name = Some("Saved Messages".to_string());
+                        recipient_id = my_user_id.clone();
                     } else {
+                        recipient_id = Some(target_id.clone());
                         if let Some(user) = known_users.get(target_id) {
                             display_name = Some(user.username.clone());
                         }
@@ -137,6 +142,7 @@ pub async fn fetch_dms(
                     };
 
                     if let Some(target_id) = other_id {
+                        recipient_id = Some(target_id.clone());
                         if let Some(user) = known_users.get(&target_id) {
                             display_name = Some(user.username.clone());
                         }
@@ -198,6 +204,7 @@ pub async fn fetch_dms(
             dm_channels.push(DirectMessageChannel {
                 id: id_str.to_string(),
                 name,
+                recipient_id,
                 has_unread,
                 typing_users: std::collections::HashSet::new(),
             });

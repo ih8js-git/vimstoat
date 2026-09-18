@@ -1,3 +1,4 @@
+use ratatui::style::Color;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
@@ -11,6 +12,8 @@ pub struct Server {
 pub struct DirectMessageChannel {
     pub id: String,
     pub name: String,
+    #[serde(default)]
+    pub recipient_id: Option<String>,
     #[serde(default)]
     pub has_unread: bool,
     #[serde(skip)]
@@ -26,6 +29,18 @@ pub enum UserStatus {
     Invisible,
     #[default]
     Offline,
+}
+
+impl UserStatus {
+    pub fn bubble(&self) -> (&'static str, ratatui::style::Color) {
+        match self {
+            Self::Online => (" ●", Color::Green),
+            Self::Idle => (" ●", Color::Yellow),
+            Self::Focus => (" ●", Color::Cyan),
+            Self::DoNotDisturb => (" ●", Color::Red),
+            Self::Invisible | Self::Offline => (" ○", Color::DarkGray),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
