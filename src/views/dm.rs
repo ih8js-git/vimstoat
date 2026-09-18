@@ -12,9 +12,33 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
     let border_color = app.input_state.input_mode.color();
 
     let title = if let Some(channel) = app.store.dm_channels.get(app.selected_dm_index) {
-        format!(" Direct Message: {} ", channel.name)
+        let mut spans = vec![
+            Span::raw(" Direct Message: "),
+            Span::raw(channel.name.as_str()),
+        ];
+
+        if let Some(user) = channel
+            .recipient_id
+            .as_ref()
+            .and_then(|uid| app.store.users.get(uid))
+        {
+            let (sym, color) = user.status.bubble();
+            spans.push(Span::styled(sym, Style::default().fg(color)));
+
+            if let Some(text) = &user.status_text
+                && !text.trim().is_empty()
+            {
+                spans.push(Span::styled(
+                    format!(" - {text}"),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
+
+        spans.push(Span::raw(" "));
+        Line::from(spans)
     } else {
-        " Direct Message ".to_string()
+        Line::from(" Direct Message ")
     };
 
     let block = Block::default()
