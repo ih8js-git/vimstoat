@@ -224,7 +224,7 @@ impl InputState {
         let key_map = self.key_map();
         let action = key_map
             .get(&self.pending_keys)
-            .cloned()
+            .copied()
             .or(self.handle_typing_event(key_event));
         if action.is_some() || !self.has_potential_pending_key_bindings() {
             self.pending_keys.clear();

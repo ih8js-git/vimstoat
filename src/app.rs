@@ -211,6 +211,7 @@ impl App {
                 loop {
                     interval.tick().await;
 
+                    #[allow(clippy::cast_possible_truncation)]
                     let timestamp = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
                         .unwrap()
@@ -409,7 +410,7 @@ impl App {
             }
         }
         if let Err(e) = cache_locked.dump() {
-            error!("Failed to dump cache to disk: {}", e);
+            error!("Failed to dump cache to disk: {e}");
         }
     }
 

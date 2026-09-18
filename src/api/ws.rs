@@ -68,7 +68,10 @@ impl WsClient {
     }
 
     pub async fn send_event(&self, event: ClientEvent) -> Result<()> {
-        self.tx_outgoing.send(event).await.map_err(|e| e.into())
+        self.tx_outgoing
+            .send(event)
+            .await
+            .map_err(std::convert::Into::into)
     }
 
     pub fn clone_sender(&self) -> mpsc::Sender<ClientEvent> {
@@ -93,7 +96,7 @@ pub fn handle(app: &mut App, event: ServerEvent) {
         ServerEvent::Ready { servers, .. } => handle_ready(app, servers),
         ServerEvent::Message(msg_val) => handle_message(app, msg_val),
         ServerEvent::MessageUpdate { id, channel, data } => {
-            handle_message_update(app, id, channel, data)
+            handle_message_update(app, id, channel, data);
         }
         ServerEvent::MessageDelete { id, channel } => handle_message_delete(app, id, channel),
         ServerEvent::ChannelStartTyping { id, user } => {
@@ -127,7 +130,7 @@ fn handle_ready(app: &mut App, servers: Option<Vec<serde_json::Value>>) {
             let description = server_val
                 .get("description")
                 .and_then(|v| v.as_str())
-                .map(|s| s.to_string());
+                .map(std::string::ToString::to_string);
 
             if let (Some(id_str), Some(name_str)) = (id, name) {
                 let server = Server {
@@ -166,7 +169,7 @@ fn handle_message(app: &mut App, msg_val: serde_json::Value) {
             let mut new_user_fetched = None;
 
             if let Some(user) = local_users.get(&author_id) {
-                author_name = user.username.clone();
+                author_name.clone_from(&user.username);
             } else if author_id != "Unknown"
                 && let Ok(user_val) = api_client
                     .get::<serde_json::Value>(crate::api::client::Endpoint::User(author_id.clone()))

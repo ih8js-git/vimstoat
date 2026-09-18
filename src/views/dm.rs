@@ -126,15 +126,11 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
                 .store
                 .users
                 .get(uid)
-                .map(|u| u.username.as_str())
-                .unwrap_or("Someone");
+                .map_or("Someone", |u| u.username.as_str());
             typing_names.push(name);
         }
         let typing_str = typing_names.join(", ");
-        format!(
-            " Message (Type 'i' to insert, ESC for normal) - {} is typing... ",
-            typing_str
-        )
+        format!(" Message (Type 'i' to insert, ESC for normal) - {typing_str} is typing... ")
     } else {
         " Message (Type 'i' to insert, ESC for normal) ".to_string()
     };
@@ -393,7 +389,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 }
 
                 let yank_content: String = chars[line_start..line_end].iter().collect();
-                app.yank_buffer = Some(format!("{}\n", yank_content));
+                app.yank_buffer = Some(format!("{yank_content}\n"));
 
                 let mut new_chars = Vec::new();
                 new_chars.extend_from_slice(&chars[0..delete_start]);
@@ -475,7 +471,7 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                         )
                         .await
                     {
-                        log::error!("Failed to send message: {}", e);
+                        log::error!("Failed to send message: {e}");
                     }
                 });
             }

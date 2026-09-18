@@ -64,7 +64,7 @@ pub async fn handle(app: &mut App, key: KeyEvent) {
                     .await
                 {
                     Ok(client) => match app.auth.store_token(&app.input_text).await {
-                        Ok(_) => {
+                        Ok(()) => {
                             app.api_client = client;
                             if let Err(e) = app.setup_session().await {
                                 app.state = AppState::Error(e);

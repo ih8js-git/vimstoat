@@ -33,9 +33,9 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
         let width = num_digits.max(2);
 
         let line_num_str = if is_selected {
-            format!("{:<width$} ", i, width = width)
+            format!("{i:<width$} ")
         } else {
-            format!("{:>width$} ", rel_num, width = width)
+            format!("{rel_num:>width$} ")
         };
 
         let num_style = if is_selected {

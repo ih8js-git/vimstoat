@@ -125,7 +125,7 @@ impl CacheStore {
     pub fn set<V: Serialize + Debug>(&mut self, id: Id<V>, value: &V) -> Result<()> {
         let key = Self::build_key::<V>(id)?;
 
-        log::info!("Setting key-value to cache: k: {:?}, v: {:?}", key, value);
+        log::info!("Setting key-value to cache: k: {key:?}, v: {value:?}");
         self.db.set(key.as_ref(), value)?;
         Ok(())
     }
@@ -133,7 +133,7 @@ impl CacheStore {
     pub fn get<V: DeserializeOwned>(&self, id: Id<V>) -> Option<V> {
         let key = Self::build_key::<V>(id).ok()?;
 
-        log::info!("Getting value from key in cache: k: {:?}", key);
+        log::info!("Getting value from key in cache: k: {key:?}");
         self.db.get::<V>(key.as_ref())
     }
 
@@ -146,7 +146,7 @@ impl CacheStore {
     pub fn remove<V>(&mut self, id: Id<V>) -> Result<bool> {
         let key = Self::build_key::<V>(id)?;
 
-        log::info!("Deleting value from key in cache: k: {:?}", key);
+        log::info!("Deleting value from key in cache: k: {key:?}");
         let key_str = key.as_ref();
 
         if self.db.exists(key_str) {

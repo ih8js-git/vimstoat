@@ -23,23 +23,23 @@ pub async fn fetch_message_history(
     channel_id: &str,
     query: Option<&MessageHistoryQuery>,
 ) -> Result<Vec<serde_json::Value>> {
-    let mut path = format!("/channels/{}/messages", channel_id);
+    let mut path = format!("/channels/{channel_id}/messages");
     if let Some(q) = query {
         let mut params = Vec::new();
         if let Some(limit) = q.limit {
-            params.push(format!("limit={}", limit));
+            params.push(format!("limit={limit}"));
         }
         if let Some(before) = &q.before {
-            params.push(format!("before={}", before));
+            params.push(format!("before={before}"));
         }
         if let Some(after) = &q.after {
-            params.push(format!("after={}", after));
+            params.push(format!("after={after}"));
         }
         if let Some(sort) = &q.sort {
-            params.push(format!("sort={}", sort));
+            params.push(format!("sort={sort}"));
         }
         if let Some(nearby) = &q.nearby {
-            params.push(format!("nearby={}", nearby));
+            params.push(format!("nearby={nearby}"));
         }
         if !params.is_empty() {
             path.push('?');

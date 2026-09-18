@@ -18,7 +18,7 @@ pub async fn fetch_dms(
             .get("_id")
             .or_else(|| user_val.get("id"))
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
+            .map(std::string::ToString::to_string),
         Err(_) => None,
     };
 
@@ -34,7 +34,7 @@ pub async fn fetch_dms(
         let mut display_name = channel
             .get("name")
             .and_then(|v| v.as_str())
-            .map(|s| s.to_string());
+            .map(std::string::ToString::to_string);
 
         if display_name.is_none() {
             let channel_type = channel
@@ -139,8 +139,7 @@ pub async fn fetch_dms(
         }
 
         let name = display_name.unwrap_or_else(|| {
-            id.map(|s| format!("DM ({s})"))
-                .unwrap_or_else(|| "Direct Message".to_string())
+            id.map_or_else(|| "Direct Message".to_string(), |s| format!("DM ({s})"))
         });
 
         if let Some(id_str) = id {
