@@ -82,17 +82,18 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             Style::default().fg(Color::Cyan)
         };
 
-        let mut spans = vec![
+        let spans = vec![
             Span::styled(line_num_str, num_style),
+            if channel.has_unread {
+                Span::styled(
+                    "[*] ",
+                    Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::raw("")
+            },
             Span::styled(channel.name.as_str(), text_style),
         ];
-
-        if channel.has_unread {
-            spans.push(Span::styled(
-                " [*]",
-                Style::default().fg(Color::Red).add_modifier(Modifier::BOLD),
-            ));
-        }
 
         items.push(ListItem::new(Line::from(spans)));
     }
