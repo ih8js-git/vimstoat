@@ -176,6 +176,20 @@ impl App {
             self.store.users.insert(user.id.clone(), user);
         }
 
+        let users = self.store.users.clone();
+        let api_client = self.api_client.clone();
+        let app_tx = self.app_tx.clone();
+        tokio::spawn(async move {
+            match crate::api::dm::fetch_dms(&api_client, &users).await {
+                Ok((dms, new_users)) => {
+                    app_tx.send(AppEvent::DmsLoaded(dms, new_users)).await.ok();
+                }
+                Err(e) => {
+                    error!("Error pre-fetching DMs on startup: {e}");
+                }
+            }
+        });
+
         Ok(())
     }
 

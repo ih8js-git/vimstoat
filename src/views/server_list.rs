@@ -114,22 +114,25 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             if app.selected_index == 0 {
                 app.selected_dm_index = 0;
                 app.state = AppState::DmList;
-                app.is_loading_dms = true;
 
-                let users = app.store.users.clone();
-                let api_client = app.api_client.clone();
-                let app_tx = app.app_tx.clone();
+                if app.store.dm_channels.is_empty() {
+                    app.is_loading_dms = true;
 
-                tokio::spawn(async move {
-                    match crate::api::dm::fetch_dms(&api_client, &users).await {
-                        Ok((dms, new_users)) => {
-                            app_tx.send(AppEvent::DmsLoaded(dms, new_users)).await.ok();
+                    let users = app.store.users.clone();
+                    let api_client = app.api_client.clone();
+                    let app_tx = app.app_tx.clone();
+
+                    tokio::spawn(async move {
+                        match crate::api::dm::fetch_dms(&api_client, &users).await {
+                            Ok((dms, new_users)) => {
+                                app_tx.send(AppEvent::DmsLoaded(dms, new_users)).await.ok();
+                            }
+                            Err(e) => {
+                                error!("Error fetching DMs in background: {e}");
+                            }
                         }
-                        Err(e) => {
-                            error!("Error fetching DMs in background: {e}");
-                        }
-                    }
-                });
+                    });
+                }
             }
         }
         Some(Action::CursorUp) => {

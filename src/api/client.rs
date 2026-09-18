@@ -15,6 +15,7 @@ pub enum Endpoint {
     Channel(String),
     MessageHistory(String),
     SendMessage(String),
+    SyncUnreads,
     Custom(String),
 }
 
@@ -29,6 +30,7 @@ impl Endpoint {
             Self::Channel(id) => format!("/channels/{id}"),
             Self::MessageHistory(id) => format!("/channels/{id}/messages"),
             Self::SendMessage(id) => format!("/channels/{id}/messages"),
+            Self::SyncUnreads => String::from("/sync/unreads"),
             Self::Custom(path) => path.clone(),
         }
     }

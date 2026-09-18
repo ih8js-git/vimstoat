@@ -4,11 +4,43 @@ use crate::{
     models::{DirectMessageChannel, User},
 };
 
+pub async fn fetch_unreads(api_client: &ApiClient) -> Result<Vec<serde_json::Value>> {
+    api_client.get(Endpoint::SyncUnreads).await
+}
+
 pub async fn fetch_dms(
     api_client: &ApiClient,
     known_users: &std::collections::HashMap<String, User>,
 ) -> Result<(Vec<DirectMessageChannel>, Vec<User>)> {
     let dms_json: Vec<serde_json::Value> = api_client.get(Endpoint::Dms).await?;
+
+    let (unreads_map, unreads_fetched) = match fetch_unreads(api_client).await {
+        Ok(unreads) => {
+            let mut map = std::collections::HashMap::new();
+            for unread in unreads {
+                let channel_id_opt = unread
+                    .get("_id")
+                    .and_then(|v| {
+                        if let Some(obj) = v.as_object() {
+                            obj.get("channel").and_then(|c| c.as_str())
+                        } else {
+                            v.as_str()
+                        }
+                    })
+                    .or_else(|| unread.get("channel").and_then(|c| c.as_str()))
+                    .or_else(|| unread.get("channel_id").and_then(|c| c.as_str()));
+
+                if let Some(ch_id) = channel_id_opt {
+                    map.insert(ch_id.to_string(), unread);
+                }
+            }
+            (map, true)
+        }
+        Err(e) => {
+            log::warn!("Could not fetch unreads: {e}");
+            (std::collections::HashMap::new(), false)
+        }
+    };
 
     let my_user_id = match api_client
         .get::<serde_json::Value>(Endpoint::CurrentUser)
@@ -142,11 +174,43 @@ pub async fn fetch_dms(
             id.map_or_else(|| "Direct Message".to_string(), |s| format!("DM ({s})"))
         });
 
+        let last_message_id = channel
+            .get("last_message_id")
+            .or_else(|| channel.get("last_message"))
+            .and_then(|v| v.as_str());
+
+        let has_unread = match last_message_id {
+            None => false,
+            Some(latest) => {
+                if !unreads_fetched {
+                    false
+                } else if let Some(id_str) = id
+                    && let Some(unread) = unreads_map.get(id_str)
+                {
+                    let has_mentions = unread
+                        .get("mentions")
+                        .and_then(|m| m.as_array())
+                        .is_some_and(|m| !m.is_empty());
+
+                    if has_mentions {
+                        true
+                    } else {
+                        match unread.get("last_id").and_then(|v| v.as_str()) {
+                            Some(last_read) => latest > last_read,
+                            None => true,
+                        }
+                    }
+                } else {
+                    true
+                }
+            }
+        };
+
         if let Some(id_str) = id {
             dm_channels.push(DirectMessageChannel {
                 id: id_str.to_string(),
                 name,
-                has_unread: false,
+                has_unread,
                 typing_users: std::collections::HashSet::new(),
             });
         }
