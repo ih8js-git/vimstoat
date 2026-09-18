@@ -90,19 +90,25 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             ));
         }
 
-        let status_span = if let Some(user) = channel
+        spans.push(Span::styled(channel.name.as_str(), text_style));
+
+        if let Some(user) = channel
             .recipient_id
             .as_ref()
             .and_then(|uid| app.store.users.get(uid))
         {
             let (sym, color) = user.status.bubble();
-            Span::styled(sym, Style::default().fg(color))
-        } else {
-            Span::raw("")
-        };
+            spans.push(Span::styled(sym, Style::default().fg(color)));
 
-        spans.push(Span::styled(channel.name.as_str(), text_style));
-        spans.push(status_span);
+            if let Some(text) = &user.status_text
+                && !text.trim().is_empty()
+            {
+                spans.push(Span::styled(
+                    format!(" - {text}"),
+                    Style::default().fg(Color::DarkGray),
+                ));
+            }
+        }
 
         items.push(ListItem::new(Line::from(spans)));
     }
