@@ -8,7 +8,7 @@ use crate::{
     models::{Message, Server, UserStatus},
 };
 use futures_util::{SinkExt, StreamExt};
-use log::{debug, error, info};
+use log::{error, info, warn};
 use tokio::sync::mpsc;
 use tokio_tungstenite::{connect_async, tungstenite::protocol::Message as WsMessage};
 
@@ -36,8 +36,7 @@ impl WsClient {
                             Self::dispatch_event(event, &tx_incoming).await;
                         }
                         Err(e) => {
-                            error!("Error deserializing ServerEvent: {e}\nRaw data: {text}");
-                            break;
+                            warn!("Error deserializing ServerEvent: {e}\nRaw data: {text}");
                         }
                     },
                     Ok(WsMessage::Close(_)) => {
@@ -90,8 +89,6 @@ impl WsClient {
 }
 
 pub fn handle(app: &mut App, event: ServerEvent) {
-    debug!("Received WebSocket event: {event:?}");
-
     match event {
         ServerEvent::Ready { servers, users, .. } => handle_ready(app, servers, users),
         ServerEvent::UserUpdate { id, data, clear } => {
@@ -118,7 +115,10 @@ pub fn handle(app: &mut App, event: ServerEvent) {
                 })
                 .ok();
         }
-        _ => {}
+        ServerEvent::Pong { .. } | ServerEvent::Authenticated => {}
+        unhandled => {
+            warn!("Unhandled WebSocket event: {unhandled:?}");
+        }
     }
 }
 
