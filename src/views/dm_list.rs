@@ -159,6 +159,9 @@ pub fn handle(app: &mut App, key: KeyEvent) {
         }
         Some(Action::Enter) if !app.store.dm_channels.is_empty() => {
             let channel_id = app.store.dm_channels[app.selected_dm_index].id.clone();
+            let last_msg_id = app.store.dm_channels[app.selected_dm_index]
+                .last_message_id
+                .clone();
             app.store.dm_channels[app.selected_dm_index].has_unread = false;
             app.state = AppState::Dm;
             app.set_input_mode(InputMode::Normal);
@@ -171,6 +174,11 @@ pub fn handle(app: &mut App, key: KeyEvent) {
             let users = app.store.users.clone();
 
             tokio::spawn(async move {
+                if let Some(msg_id) = &last_msg_id {
+                    let _ =
+                        crate::api::channel::ack_message(&api_client, &channel_id, msg_id).await;
+                }
+
                 let query = crate::api::channel::MessageHistoryQuery {
                     limit: Some(50),
                     before: None,
@@ -236,6 +244,17 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                                 author_name,
                                 content,
                             });
+                        }
+
+                        if last_msg_id.is_none()
+                            && let Some(latest) = parsed_messages.first()
+                        {
+                            let _ = crate::api::channel::ack_message(
+                                &api_client,
+                                &channel_id,
+                                &latest.id,
+                            )
+                            .await;
                         }
 
                         app_tx

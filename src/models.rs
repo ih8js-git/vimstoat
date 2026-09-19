@@ -15,6 +15,8 @@ pub struct DirectMessageChannel {
     #[serde(default)]
     pub recipient_id: Option<String>,
     #[serde(default)]
+    pub last_message_id: Option<String>,
+    #[serde(default)]
     pub has_unread: bool,
     #[serde(skip)]
     pub typing_users: std::collections::HashSet<String>,

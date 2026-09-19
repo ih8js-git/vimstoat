@@ -16,6 +16,10 @@ pub enum Endpoint {
     MessageHistory(String),
     SendMessage(String),
     SyncUnreads,
+    AckMessage {
+        channel_id: String,
+        message_id: String,
+    },
     Custom(String),
 }
 
@@ -31,6 +35,10 @@ impl Endpoint {
             Self::MessageHistory(id) => format!("/channels/{id}/messages"),
             Self::SendMessage(id) => format!("/channels/{id}/messages"),
             Self::SyncUnreads => String::from("/sync/unreads"),
+            Self::AckMessage {
+                channel_id,
+                message_id,
+            } => format!("/channels/{channel_id}/ack/{message_id}"),
             Self::Custom(path) => path.clone(),
         }
     }
@@ -99,6 +107,27 @@ impl ApiClient {
             let text = response.text().await.unwrap_or_default();
             Err(anyhow!(
                 "API POST request to {endpoint:?} failed: {status} - {text}"
+            ))
+        }
+    }
+
+    pub async fn put_empty(&self, endpoint: Endpoint) -> Result<()> {
+        let url = format!("{}{}", self.base_url, endpoint.path());
+
+        let response = self
+            .client
+            .put(&url)
+            .header("X-Session-Token", &self.token)
+            .send()
+            .await?;
+
+        if response.status().is_success() {
+            Ok(())
+        } else {
+            let status = response.status();
+            let text = response.text().await.unwrap_or_default();
+            Err(anyhow!(
+                "API PUT request to {endpoint:?} failed: {status} - {text}"
             ))
         }
     }

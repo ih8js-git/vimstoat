@@ -47,6 +47,10 @@ pub enum AppEvent {
         user_id: String,
     },
     UsersRefreshed(Vec<crate::models::User>),
+    ChannelAcked {
+        channel_id: String,
+        message_id: String,
+    },
 }
 
 pub enum AppState {
@@ -365,6 +369,13 @@ impl App {
 
                 if is_active_channel {
                     self.store.current_dm_messages.insert(0, message.clone()); // newest is at 0 (rev order in UI)
+                    let api_client = self.api_client.clone();
+                    let ch_id = channel_id.clone();
+                    let msg_id = message.id.clone();
+                    tokio::spawn(async move {
+                        let _ =
+                            crate::api::channel::ack_message(&api_client, &ch_id, &msg_id).await;
+                    });
                 }
 
                 if let Some(channel) = self
@@ -372,9 +383,11 @@ impl App {
                     .dm_channels
                     .iter_mut()
                     .find(|c| c.id == channel_id)
-                    && !is_active_channel
                 {
-                    channel.has_unread = true;
+                    channel.last_message_id = Some(message.id.clone());
+                    if !is_active_channel {
+                        channel.has_unread = true;
+                    }
                 }
             }
             AppEvent::MessageUpdated {
@@ -442,6 +455,20 @@ impl App {
                     .find(|c| c.id == channel_id)
                 {
                     channel.typing_users.remove(&user_id);
+                }
+            }
+            AppEvent::ChannelAcked {
+                channel_id,
+                message_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.last_message_id = Some(message_id);
+                    channel.has_unread = false;
                 }
             }
         }

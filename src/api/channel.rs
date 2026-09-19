@@ -49,3 +49,12 @@ pub async fn fetch_message_history(
 
     api_client.get(Endpoint::Custom(path)).await
 }
+
+pub async fn ack_message(api_client: &ApiClient, channel_id: &str, message_id: &str) -> Result<()> {
+    api_client
+        .put_empty(Endpoint::AckMessage {
+            channel_id: channel_id.to_string(),
+            message_id: message_id.to_string(),
+        })
+        .await
+}

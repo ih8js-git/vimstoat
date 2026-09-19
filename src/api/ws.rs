@@ -115,6 +115,14 @@ pub fn handle(app: &mut App, event: ServerEvent) {
                 })
                 .ok();
         }
+        ServerEvent::ChannelAck { id, message_id, .. } => {
+            app.app_tx
+                .try_send(AppEvent::ChannelAcked {
+                    channel_id: id,
+                    message_id,
+                })
+                .ok();
+        }
         ServerEvent::Pong { .. } | ServerEvent::Authenticated => {}
         unhandled => {
             warn!("Unhandled WebSocket event: {unhandled:?}");
