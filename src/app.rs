@@ -46,6 +46,7 @@ pub enum AppEvent {
         channel_id: String,
         user_id: String,
     },
+    UsersRefreshed(Vec<crate::models::User>),
 }
 
 pub enum AppState {
@@ -290,6 +291,53 @@ impl App {
                 }
                 self.store.dm_channels = dms;
                 self.is_loading_dms = false;
+
+                // Spawn background revalidation to fetch fresh user status from REST API
+                let recipient_ids: Vec<String> = self
+                    .store
+                    .dm_channels
+                    .iter()
+                    .filter_map(|ch| ch.recipient_id.clone())
+                    .collect();
+                let api_client = self.api_client.clone();
+                let app_tx = self.app_tx.clone();
+                tokio::spawn(async move {
+                    log::info!(
+                        "Starting user status revalidation for {} recipients",
+                        recipient_ids.len()
+                    );
+                    let mut fresh_users = Vec::new();
+                    for id in &recipient_ids {
+                        match crate::api::user::fetch_user(&api_client, id).await {
+                            Ok(user) => {
+                                log::info!(
+                                    "Revalidated user {}: status={:?}",
+                                    user.username,
+                                    user.status
+                                );
+                                fresh_users.push(user);
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to revalidate user {}: {}", id, e);
+                            }
+                        }
+                    }
+                    log::info!(
+                        "Revalidation complete: {} users refreshed",
+                        fresh_users.len()
+                    );
+                    if !fresh_users.is_empty() {
+                        app_tx
+                            .send(AppEvent::UsersRefreshed(fresh_users))
+                            .await
+                            .ok();
+                    }
+                });
+            }
+            AppEvent::UsersRefreshed(users) => {
+                for user in users {
+                    self.store.users.insert(user.id.clone(), user);
+                }
             }
             AppEvent::DmMessagesLoaded(messages, new_users) => {
                 for user in new_users {

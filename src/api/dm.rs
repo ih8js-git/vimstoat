@@ -123,12 +123,13 @@ pub async fn fetch_dms(
                             display_name = Some(user.username.clone());
                         }
 
-                        if display_name.is_none()
-                            && let Ok(user) =
+                        if display_name.is_none() {
+                            if let Ok(user) =
                                 crate::api::user::fetch_user(api_client, target_id).await
-                        {
-                            display_name = Some(user.username.clone());
-                            new_users.push(user);
+                            {
+                                display_name = Some(user.username.clone());
+                                new_users.push(user);
+                            }
                         }
                     }
                     if display_name.is_none() {
@@ -147,12 +148,13 @@ pub async fn fetch_dms(
                             display_name = Some(user.username.clone());
                         }
 
-                        if display_name.is_none()
-                            && let Ok(user) =
+                        if display_name.is_none() {
+                            if let Ok(user) =
                                 crate::api::user::fetch_user(api_client, &target_id).await
-                        {
-                            display_name = Some(user.username.clone());
-                            new_users.push(user);
+                            {
+                                display_name = Some(user.username.clone());
+                                new_users.push(user);
+                            }
                         }
                         if display_name.is_none() {
                             display_name = Some(target_id);

@@ -100,7 +100,8 @@ pub fn render(f: &mut Frame, app: &App, area: ratatui::layout::Rect) {
             let (sym, color) = user.status.bubble();
             spans.push(Span::styled(sym, Style::default().fg(color)));
 
-            if let Some(text) = &user.status_text
+            if user.status != crate::models::UserStatus::Offline
+                && let Some(text) = &user.status_text
                 && !text.trim().is_empty()
             {
                 spans.push(Span::styled(

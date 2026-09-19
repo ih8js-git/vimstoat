@@ -15,27 +15,27 @@ pub fn parse_user(val: &serde_json::Value) -> Option<User> {
 
     let username = val.get("username").and_then(|v| v.as_str())?.to_string();
 
+    let is_online = val.get("online").and_then(|o| o.as_bool());
+
     let (status, status_text) = if let Some(status_val) = val.get("status") {
-        let presence = status_val
+        let configured_presence = status_val
             .get("presence")
             .and_then(|p| p.as_str())
-            .map_or_else(
-                || {
-                    if val.get("online").and_then(|o| o.as_bool()).unwrap_or(false) {
-                        UserStatus::Online
-                    } else {
-                        UserStatus::Offline
-                    }
-                },
-                |p| match p {
-                    "Online" => UserStatus::Online,
-                    "Idle" => UserStatus::Idle,
-                    "Focus" => UserStatus::Focus,
-                    "Busy" | "DoNotDisturb" => UserStatus::DoNotDisturb,
-                    "Invisible" => UserStatus::Invisible,
-                    _ => UserStatus::Offline,
-                },
-            );
+            .map(|p| match p {
+                "Online" => UserStatus::Online,
+                "Idle" => UserStatus::Idle,
+                "Focus" => UserStatus::Focus,
+                "Busy" | "DoNotDisturb" => UserStatus::DoNotDisturb,
+                "Invisible" => UserStatus::Invisible,
+                _ => UserStatus::Offline,
+            });
+
+        // If `online` is explicitly false, the user is offline regardless of configured presence
+        let presence = match is_online {
+            Some(false) => UserStatus::Offline,
+            Some(true) => configured_presence.unwrap_or(UserStatus::Online),
+            None => configured_presence.unwrap_or(UserStatus::Offline),
+        };
 
         let text = status_val
             .get("text")
@@ -44,9 +44,8 @@ pub fn parse_user(val: &serde_json::Value) -> Option<User> {
 
         (presence, text)
     } else {
-        let is_online = val.get("online").and_then(|o| o.as_bool()).unwrap_or(false);
         (
-            if is_online {
+            if is_online.unwrap_or(false) {
                 UserStatus::Online
             } else {
                 UserStatus::Offline
