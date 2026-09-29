@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use log::{debug, error, info, warn};
 use ratatui::crossterm::event::{Event, KeyEvent};
@@ -247,6 +247,9 @@ impl App {
     }
 
     pub async fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
+        let data_dump_timeout = 10;
+        let mut delta = Instant::now();
+
         while !self.should_quit {
             terminal.draw(|f| crate::views::render(f, self))?;
 
@@ -267,6 +270,13 @@ impl App {
 
             while let Ok(event) = self.ws_rx.try_recv() {
                 self.handle_ws_event(event);
+            }
+
+            if delta.elapsed().as_secs() >= 60 * data_dump_timeout {
+                if let Err(e) = self.cache.lock().await.dump() {
+                    error!("Error dumping cache to disk: {e}");
+                }
+                delta = Instant::now();
             }
         }
 
