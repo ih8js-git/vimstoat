@@ -3,9 +3,17 @@ name: Binaries Publisher
 run-name: Binaries Publisher | ${{ github.event_name }} by ${{ github.actor }} on '${{ github.ref_name }}'
 
 on:
+  release:
+    types: [published]
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+*"
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag"
+        required: false
+        default: ""
 
 permissions:
   contents: write
@@ -25,6 +33,7 @@ jobs:
             binary-postfix: ""
             binary-name: vimstoat
             use-cross: false
+
           - os: macos-latest
             os-name: macos
             target: aarch64-apple-darwin
@@ -32,6 +41,7 @@ jobs:
             binary-postfix: ""
             binary-name: vimstoat
             use-cross: false
+
           - os: ubuntu-latest
             os-name: linux
             target: x86_64-unknown-linux-gnu
@@ -39,6 +49,7 @@ jobs:
             binary-postfix: ""
             binary-name: vimstoat
             use-cross: false
+
           - os: ubuntu-latest
             os-name: linux
             target: x86_64-unknown-linux-musl
@@ -46,20 +57,23 @@ jobs:
             binary-postfix: ""
             binary-name: vimstoat
             use-cross: true
-          - os: ubuntu-latest
+          
+          - os: ubuntu-24.04-arm
             os-name: linux
             target: aarch64-unknown-linux-gnu
             architecture: arm64
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: true
-          - os: ubuntu-latest
+            use-cross: false
+
+          - os: ubuntu-24.04-arm
             os-name: linux
             target: aarch64-unknown-linux-musl
             architecture: arm64-musl
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: true
+            use-cross: false
+
           - os: windows-latest
             os-name: windows
             target: x86_64-pc-windows-msvc
@@ -67,6 +81,7 @@ jobs:
             binary-postfix: ".exe"
             binary-name: vimstoat
             use-cross: false
+
           - os: windows-latest
             os-name: windows
             target: aarch64-pc-windows-msvc
