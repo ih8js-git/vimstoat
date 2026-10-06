@@ -72,7 +72,7 @@ jobs:
             architecture: arm64-musl
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: false
+            use-cross: true
 
           - os: windows-latest
             os-name: windows
