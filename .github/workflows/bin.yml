@@ -15,11 +15,13 @@ on:
         required: false
         default: ""
 
+
 permissions:
   contents: write
 
 jobs:
   publish:
+    if: startsWith(github.ref, 'refs/tags/') || inputs.tag != ''
     name: Publishing for ${{ matrix.target }}
     runs-on: ${{ matrix.os }}
     strategy:
@@ -142,6 +144,7 @@ jobs:
       - name: Releasing assets
         uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
           draft: false
           files: |
             target/${{ matrix.target }}/release/${{ matrix.binary-name }}-*.tar.gz
