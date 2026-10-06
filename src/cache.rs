@@ -10,7 +10,7 @@ use serde::{Serialize, de::DeserializeOwned};
 
 use crate::{
     Result,
-    error::{CacheError, IdError},
+    views::error::{CacheError, IdError},
 };
 
 pub const DB_FILE: &str = "cache.db";
@@ -125,7 +125,7 @@ impl CacheStore {
     pub fn set<V: Serialize + Debug>(&mut self, id: Id<V>, value: &V) -> Result<()> {
         let key = Self::build_key::<V>(id)?;
 
-        log::info!("Setting key-value to cache: k: {:?}, v: {:?}", key, value);
+        log::info!("Setting key-value to cache: k: {key:?}, v: {value:?}");
         self.db.set(key.as_ref(), value)?;
         Ok(())
     }
@@ -133,7 +133,7 @@ impl CacheStore {
     pub fn get<V: DeserializeOwned>(&self, id: Id<V>) -> Option<V> {
         let key = Self::build_key::<V>(id).ok()?;
 
-        log::info!("Getting value from key in cache: k: {:?}", key);
+        log::info!("Getting value from key in cache: k: {key:?}");
         self.db.get::<V>(key.as_ref())
     }
 
@@ -146,7 +146,7 @@ impl CacheStore {
     pub fn remove<V>(&mut self, id: Id<V>) -> Result<bool> {
         let key = Self::build_key::<V>(id)?;
 
-        log::info!("Deleting value from key in cache: k: {:?}", key);
+        log::info!("Deleting value from key in cache: k: {key:?}");
         let key_str = key.as_ref();
 
         if self.db.exists(key_str) {
@@ -161,6 +161,26 @@ impl CacheStore {
         let full_name = type_name::<V>();
         let short_name = full_name.split("::").last().unwrap_or(full_name);
         Ok(format!("{}:{}", short_name.to_lowercase(), id.as_str()))
+    }
+
+    pub fn set_messages(
+        &mut self,
+        channel_id: &str,
+        messages: &[crate::models::Message],
+    ) -> Result<()> {
+        let key = format!("messages:{channel_id}");
+        log::info!(
+            "Caching {} messages for channel {channel_id}",
+            messages.len()
+        );
+        self.db.set(&key, &messages.to_vec())?;
+        Ok(())
+    }
+
+    pub fn get_messages(&self, channel_id: &str) -> Option<Vec<crate::models::Message>> {
+        let key = format!("messages:{channel_id}");
+        log::info!("Loading cached messages for channel {channel_id}");
+        self.db.get::<Vec<crate::models::Message>>(&key)
     }
 }
 

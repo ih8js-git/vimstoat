@@ -1,8 +1,8 @@
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use log::{debug, error, info, warn};
-use ratatui::crossterm::event::KeyEvent;
+use ratatui::crossterm::event::{Event, KeyEvent};
 use tokio::sync::Mutex;
 use tokio::sync::mpsc::{self, Receiver, Sender};
 use tokio::time;
@@ -16,14 +16,18 @@ use crate::{
         events::{ClientEvent, ServerEvent},
         ws::WsClient,
     },
-    cache::CacheStore,
+    cache::{CacheStore, Id},
     input::{InputMode, InputState},
     models::{DirectMessageChannel, Server},
 };
 
 pub enum AppEvent {
     DmsLoaded(Vec<DirectMessageChannel>, Vec<crate::models::User>),
-    DmMessagesLoaded(Vec<crate::models::Message>, Vec<crate::models::User>),
+    DmMessagesLoaded(
+        String,
+        Vec<crate::models::Message>,
+        Vec<crate::models::User>,
+    ),
     NewMessage {
         channel_id: String,
         message: crate::models::Message,
@@ -38,11 +42,24 @@ pub enum AppEvent {
         channel_id: String,
         message_id: String,
     },
+    TypingStart {
+        channel_id: String,
+        user_id: String,
+    },
+    TypingStop {
+        channel_id: String,
+        user_id: String,
+    },
+    UsersRefreshed(Vec<crate::models::User>),
+    ChannelAcked {
+        channel_id: String,
+        message_id: String,
+    },
 }
 
 pub enum AppState {
-    InputToken,
-    ValidatingToken,
+    NeedsAuth,
+    ValidationToken,
     LoggedIn,
     DmList,
     Dm,
@@ -81,7 +98,16 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new(api_base_url: Option<String>, ws_base_url: Option<String>) -> Result<Self> {
+    pub async fn new() -> Result<Self> {
+        let api_base_url = std::env::var("API_BASE_URL").ok();
+        let ws_base_url = std::env::var("WS_BASE_URL").ok();
+        Self::new_with_urls(api_base_url, ws_base_url).await
+    }
+
+    pub async fn new_with_urls(
+        api_base_url: Option<String>,
+        ws_base_url: Option<String>,
+    ) -> Result<Self> {
         let auth = Auth::new().map_err(|e| anyhow::anyhow!(e))?;
 
         let mut api_client = ApiClient::new(String::new(), api_base_url.clone());
@@ -95,7 +121,7 @@ impl App {
                 Err(e) => AppState::Error(e),
             }
         } else {
-            AppState::InputToken
+            AppState::NeedsAuth
         };
 
         let (ws_client, ws_rx) = WsClient::connect(ws_base_url).await?;
@@ -103,7 +129,7 @@ impl App {
         let cache = Arc::new(Mutex::new(CacheStore::new()?));
         let (app_tx, app_rx) = mpsc::channel::<AppEvent>(32);
 
-        Ok(Self {
+        let mut app = Self {
             state,
             input_text: String::new(),
             input_cursor: 0,
@@ -127,7 +153,152 @@ impl App {
             app_tx,
             app_rx,
             input_state: InputState::default(),
-        })
+        };
+
+        if matches!(app.state, AppState::LoggedIn) {
+            app.setup_session().await?;
+        }
+
+        Ok(app)
+    }
+
+    pub async fn setup_session(&mut self) -> Result<()> {
+        let token = self.api_client.clone_token();
+        self.authenticate_ws(&token).await?;
+
+        if let Ok(user) = crate::api::user::fetch_current_user(&self.api_client).await
+            && let Ok(uid) = Id::<crate::models::User>::new(&user.id)
+        {
+            let mut cache_locked = self.cache.lock().await;
+            cache_locked.set(uid, &user).ok();
+            self.store.users.insert(user.id.clone(), user);
+        }
+
+        let users = self.store.users.clone();
+        let api_client = self.api_client.clone();
+        let app_tx = self.app_tx.clone();
+        tokio::spawn(async move {
+            match crate::api::dm::fetch_dms(&api_client, &users).await {
+                Ok((dms, new_users)) => {
+                    app_tx.send(AppEvent::DmsLoaded(dms, new_users)).await.ok();
+                }
+                Err(e) => {
+                    error!("Error pre-fetching DMs on startup: {e}");
+                }
+            }
+        });
+
+        Ok(())
+    }
+
+    pub async fn authenticate_ws(&mut self, token: &str) -> Result<()> {
+        self.ws_client
+            .send_event(ClientEvent::Authenticate {
+                token: token.into(),
+            })
+            .await?;
+
+        let mut is_authenticated = false;
+        while let Some(event) = self.ws_rx.recv().await {
+            match event {
+                ServerEvent::Authenticated => {
+                    info!("Successfully authenticated!");
+                    is_authenticated = true;
+                    break;
+                }
+                ServerEvent::Error { error } => {
+                    error!("Error authenticating: {error}");
+                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
+                }
+                _ => {}
+            }
+        }
+
+        if is_authenticated {
+            let tx_ping = self.ws_client.clone_sender();
+
+            tokio::spawn(async move {
+                let mut interval = time::interval(Duration::from_secs(20));
+
+                loop {
+                    interval.tick().await;
+
+                    #[allow(clippy::cast_possible_truncation)]
+                    let timestamp = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
+                        .unwrap()
+                        .as_millis() as u64;
+
+                    if tx_ping
+                        .send(ClientEvent::Ping { data: timestamp })
+                        .await
+                        .is_err()
+                    {
+                        warn!("Stopped pinging: channel closed.");
+                        break;
+                    }
+                }
+            });
+
+            debug!("Started pinging every 20s.");
+        }
+
+        Ok(())
+    }
+
+    pub async fn run(&mut self, terminal: &mut ratatui::DefaultTerminal) -> Result<()> {
+        let data_dump_timeout = 10;
+        let mut delta = Instant::now();
+
+        while !self.should_quit {
+            terminal.draw(|f| crate::views::render(f, self))?;
+
+            // Limit poll rate to ~60 FPS
+            if ratatui::crossterm::event::poll(Duration::from_millis(16))?
+                && let Event::Key(key) = ratatui::crossterm::event::read()?
+            {
+                self.handle_key_event(key).await?;
+
+                if self.should_quit {
+                    break;
+                }
+            }
+
+            while let Ok(event) = self.app_rx.try_recv() {
+                self.handle_app_event(event);
+            }
+
+            while let Ok(event) = self.ws_rx.try_recv() {
+                self.handle_ws_event(event);
+            }
+
+            if delta.elapsed().as_secs() >= 60 * data_dump_timeout {
+                if let Err(e) = self.cache.lock().await.dump() {
+                    error!("Error dumping cache to disk: {e}");
+                }
+                delta = Instant::now();
+            }
+        }
+
+        self.shutdown().await;
+        Ok(())
+    }
+
+    pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        if matches!(self.input_state.input_mode, InputMode::Command) {
+            crate::views::command::handle(self, key);
+            return Ok(());
+        }
+
+        match self.state {
+            AppState::NeedsAuth => crate::views::auth::handle(self, key).await,
+            AppState::ValidationToken => {}
+            AppState::LoggedIn => crate::views::server_list::handle(self, key),
+            AppState::DmList => crate::views::dm_list::handle(self, key),
+            AppState::Dm => crate::views::dm::handle(self, key),
+            AppState::Error(_) => crate::views::error::handle(self, key),
+        }
+        Ok(())
     }
 
     pub fn handle_app_event(&mut self, event: AppEvent) {
@@ -138,13 +309,69 @@ impl App {
                 }
                 self.store.dm_channels = dms;
                 self.is_loading_dms = false;
+
+                // Spawn background revalidation to fetch fresh user status from REST API
+                let recipient_ids: Vec<String> = self
+                    .store
+                    .dm_channels
+                    .iter()
+                    .filter_map(|ch| ch.recipient_id.clone())
+                    .collect();
+                let api_client = self.api_client.clone();
+                let app_tx = self.app_tx.clone();
+                tokio::spawn(async move {
+                    log::info!(
+                        "Starting user status revalidation for {} recipients",
+                        recipient_ids.len()
+                    );
+                    let mut fresh_users = Vec::new();
+                    for id in &recipient_ids {
+                        match crate::api::user::fetch_user(&api_client, id).await {
+                            Ok(user) => {
+                                log::info!(
+                                    "Revalidated user {}: status={:?}",
+                                    user.username,
+                                    user.status
+                                );
+                                fresh_users.push(user);
+                            }
+                            Err(e) => {
+                                log::warn!("Failed to revalidate user {}: {}", id, e);
+                            }
+                        }
+                    }
+                    log::info!(
+                        "Revalidation complete: {} users refreshed",
+                        fresh_users.len()
+                    );
+                    if !fresh_users.is_empty() {
+                        app_tx
+                            .send(AppEvent::UsersRefreshed(fresh_users))
+                            .await
+                            .ok();
+                    }
+                });
             }
-            AppEvent::DmMessagesLoaded(messages, new_users) => {
+            AppEvent::UsersRefreshed(users) => {
+                for user in users {
+                    self.store.users.insert(user.id.clone(), user);
+                }
+            }
+            AppEvent::DmMessagesLoaded(channel_id, messages, new_users) => {
                 for user in new_users {
                     self.store.users.insert(user.id.clone(), user);
                 }
                 self.store.current_dm_messages = messages;
                 self.is_loading_messages = false;
+
+                // Write-through: persist fetched messages to cache
+                let cache = self.cache.clone();
+                let msgs_to_cache = self.store.current_dm_messages.clone();
+                tokio::spawn(async move {
+                    if let Ok(mut cache_locked) = cache.try_lock() {
+                        let _ = cache_locked.set_messages(&channel_id, &msgs_to_cache);
+                    }
+                });
             }
             AppEvent::NewMessage {
                 channel_id,
@@ -165,6 +392,23 @@ impl App {
 
                 if is_active_channel {
                     self.store.current_dm_messages.insert(0, message.clone()); // newest is at 0 (rev order in UI)
+                    let api_client = self.api_client.clone();
+                    let ch_id = channel_id.clone();
+                    let msg_id = message.id.clone();
+                    tokio::spawn(async move {
+                        let _ =
+                            crate::api::channel::ack_message(&api_client, &ch_id, &msg_id).await;
+                    });
+
+                    // Update cache with the new message included
+                    let cache = self.cache.clone();
+                    let ch_id = channel_id.clone();
+                    let msgs_to_cache = self.store.current_dm_messages.clone();
+                    tokio::spawn(async move {
+                        if let Ok(mut cache_locked) = cache.try_lock() {
+                            let _ = cache_locked.set_messages(&ch_id, &msgs_to_cache);
+                        }
+                    });
                 }
 
                 if let Some(channel) = self
@@ -173,10 +417,10 @@ impl App {
                     .iter_mut()
                     .find(|c| c.id == channel_id)
                 {
+                    channel.last_message_id = Some(message.id.clone());
                     if !is_active_channel {
                         channel.has_unread = true;
                     }
-                    channel.last_message_preview = Some(message.content);
                 }
             }
             AppEvent::MessageUpdated {
@@ -220,6 +464,71 @@ impl App {
                         .retain(|m| m.id != message_id);
                 }
             }
+            AppEvent::TypingStart {
+                channel_id,
+                user_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.typing_users.insert(user_id);
+                }
+            }
+            AppEvent::TypingStop {
+                channel_id,
+                user_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.typing_users.remove(&user_id);
+                }
+            }
+            AppEvent::ChannelAcked {
+                channel_id,
+                message_id,
+            } => {
+                if let Some(channel) = self
+                    .store
+                    .dm_channels
+                    .iter_mut()
+                    .find(|c| c.id == channel_id)
+                {
+                    channel.last_message_id = Some(message_id);
+                    channel.has_unread = false;
+                }
+            }
+        }
+    }
+
+    pub fn handle_ws_event(&mut self, event: ServerEvent) {
+        crate::api::ws::handle(self, event);
+    }
+
+    pub async fn shutdown(&self) {
+        let mut cache_locked = self.cache.lock().await;
+        for user in self.store.users.values() {
+            if let Ok(uid) = Id::<crate::models::User>::new(&user.id) {
+                let _ = cache_locked.set(uid, user);
+            }
+        }
+
+        // Persist current DM messages if we're viewing a conversation
+        if matches!(self.state, AppState::Dm)
+            && let Some(channel) = self.store.dm_channels.get(self.selected_dm_index)
+            && !self.store.current_dm_messages.is_empty()
+        {
+            let _ = cache_locked.set_messages(&channel.id, &self.store.current_dm_messages);
+        }
+
+        if let Err(e) = cache_locked.dump() {
+            error!("Failed to dump cache to disk: {e}");
         }
     }
 
@@ -243,76 +552,5 @@ impl App {
             _ => ratatui::crossterm::cursor::SetCursorStyle::BlinkingBlock,
         };
         let _ = ratatui::crossterm::execute!(std::io::stdout(), style);
-    }
-
-    pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
-        if matches!(self.input_state.input_mode, InputMode::Command) {
-            crate::handlers::command::handle(self, key);
-            return Ok(());
-        }
-
-        match self.state {
-            AppState::InputToken => crate::handlers::input_token::handle(self, key).await,
-            AppState::ValidatingToken => {}
-            AppState::LoggedIn => crate::handlers::logged_in::handle(self, key),
-            AppState::DmList => crate::handlers::dm_list::handle(self, key),
-            AppState::Dm => crate::handlers::dm::handle(self, key),
-            AppState::Error(_) => crate::handlers::error::handle(self, key),
-        }
-        Ok(())
-    }
-
-    pub async fn authenticate_ws(&mut self, token: &str) -> Result<()> {
-        self.ws_client
-            .send_event(ClientEvent::Authenticate {
-                token: token.into(),
-            })
-            .await?;
-
-        let mut is_authenticated = false;
-        while let Some(event) = self.ws_rx.recv().await {
-            match event {
-                ServerEvent::Authenticated => {
-                    info!("Successfully authenticated!");
-                    is_authenticated = true;
-                    break;
-                }
-                ServerEvent::Error { error } => {
-                    error!("Error authenticating: {error}");
-                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
-                }
-                _ => {}
-            }
-        }
-
-        if is_authenticated {
-            let tx_ping = self.ws_client.clone_sender();
-
-            tokio::spawn(async move {
-                let mut interval = time::interval(Duration::from_secs(20));
-
-                loop {
-                    interval.tick().await;
-
-                    let timestamp = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as u64;
-
-                    if tx_ping
-                        .send(ClientEvent::Ping { data: timestamp })
-                        .await
-                        .is_err()
-                    {
-                        warn!("Stopped pinging: channel closed.");
-                        break;
-                    }
-                }
-            });
-
-            debug!("Started pinging every 20s.");
-        }
-
-        Ok(())
     }
 }

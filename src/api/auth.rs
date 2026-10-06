@@ -1,7 +1,7 @@
 use crate::{
     Result,
     api::client::{ApiClient, Endpoint},
-    error::AuthError,
+    views::error::AuthError,
 };
 use keyring::KeyringEntry;
 use serde_json::Value;
@@ -21,7 +21,7 @@ impl Auth {
         self.token_entry
             .set_secret(token)
             .await
-            .map_err(|e| e.into())
+            .map_err(std::convert::Into::into)
     }
 
     pub async fn validate_token(&self, token: &str, base_url: Option<String>) -> Result<ApiClient> {

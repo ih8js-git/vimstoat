@@ -16,7 +16,7 @@ fn get_icon_path() -> Option<PathBuf> {
     if let Err(e) = fs::create_dir_all(&icon_path) {
         error!("Error creating data directory: {e:?}");
         return None;
-    };
+    }
 
     icon_path.push(ICON_FILE);
     Some(icon_path)
@@ -70,7 +70,7 @@ impl NotifyHandler {
                 Ok(handle) => {
                     if let Err(e) = handle.wait_for_response(response) {
                         error!("Error fetching notification response: {e:?}");
-                    };
+                    }
                 }
                 Err(e) => {
                     error!("Error sending notification: {e:?}");

@@ -176,4 +176,6 @@ pub enum ServerEvent {
         id: String,
     },
     Auth(AuthEvent),
+    #[serde(other)]
+    Unknown,
 }
