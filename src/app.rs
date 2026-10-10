@@ -206,42 +206,47 @@ impl App {
                     is_authenticated = true;
                     break;
                 }
-                ServerEvent::Error { error } => {
-                    error!("Error authenticating: {error}");
-                    return Err(anyhow::anyhow!("WebSocket authentication failed: {error}"));
+                ServerEvent::Error { data } => {
+                    let reason = data["type"].as_str().unwrap_or("unknown error");
+                    error!("Error authenticating: {reason}");
+                    return Err(anyhow::anyhow!("WebSocket authentication failed: {reason}"));
                 }
                 _ => {}
             }
         }
 
-        if is_authenticated {
-            let tx_ping = self.ws_client.clone_sender();
-
-            tokio::spawn(async move {
-                let mut interval = time::interval(Duration::from_secs(20));
-
-                loop {
-                    interval.tick().await;
-
-                    #[allow(clippy::cast_possible_truncation)]
-                    let timestamp = SystemTime::now()
-                        .duration_since(UNIX_EPOCH)
-                        .unwrap()
-                        .as_millis() as u64;
-
-                    if tx_ping
-                        .send(ClientEvent::Ping { data: timestamp })
-                        .await
-                        .is_err()
-                    {
-                        warn!("Stopped pinging: channel closed.");
-                        break;
-                    }
-                }
-            });
-
-            debug!("Started pinging every 20s.");
+        if !is_authenticated {
+            return Err(anyhow::anyhow!(
+                "WebSocket closed before authentication completed"
+            ));
         }
+
+        let tx_ping = self.ws_client.clone_sender();
+
+        tokio::spawn(async move {
+            let mut interval = time::interval(Duration::from_secs(20));
+
+            loop {
+                interval.tick().await;
+
+                #[allow(clippy::cast_possible_truncation)]
+                let timestamp = SystemTime::now()
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis() as u64;
+
+                if tx_ping
+                    .send(ClientEvent::Ping { data: timestamp })
+                    .await
+                    .is_err()
+                {
+                    warn!("Stopped pinging: channel closed.");
+                    break;
+                }
+            }
+        });
+
+        debug!("Started pinging every 20s.");
 
         Ok(())
     }
@@ -584,12 +589,7 @@ mod tests {
 
     async fn live() -> &'static Live {
         LIVE.get_or_init(|| async {
-            let auth = Auth::new().expect("keyring must be available to run app tests");
-            let token = auth
-                .token_entry
-                .get_secret()
-                .await
-                .expect("a vimstoat session token must be stored in the keyring");
+            let token = crate::test_helpers::keyring_token("app").await;
             let client = ApiClient::new(token.clone(), None);
 
             let me = crate::api::user::fetch_current_user(&client)

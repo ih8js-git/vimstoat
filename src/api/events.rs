@@ -42,7 +42,7 @@ pub enum AuthEvent {
 #[allow(unused)]
 pub enum ServerEvent {
     Error {
-        error: String,
+        data: Value,
     },
     Authenticated,
     Logout,
