@@ -35,7 +35,8 @@ Keys marked **(Planned)** are not implemented yet.
 
 | Key  | Action                                                                                       |
 | ---- | -------------------------------------------------------------------------------------------- |
-| `dd` | Delete the current line of the message. The line is saved to the yank buffer (`p` to paste it back is **Planned**). |
+| `dd` | Delete the current line of the message. The line is saved to the yank buffer. |
+| `p`  | Paste the yank buffer as a new line below the current line.                                  |
 
 ## Insert Mode
 

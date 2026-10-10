@@ -439,6 +439,25 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 }
             }
         }
+        Some(Action::Paste) => {
+            if let Some(yanked) = app.yank_buffer.clone() {
+                let mut chars: Vec<char> = app.input_text.chars().collect();
+                let mut line_end = chars.len();
+                for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                    if *c == '\n' {
+                        line_end = i;
+                        break;
+                    }
+                }
+
+                let content = yanked.strip_suffix('\n').unwrap_or(&yanked);
+                let pasted: Vec<char> = std::iter::once('\n').chain(content.chars()).collect();
+                chars.splice(line_end..line_end, pasted);
+
+                app.input_text = chars.into_iter().collect();
+                app.input_cursor = line_end + 1;
+            }
+        }
         Some(Action::AppendCharacter(c)) => {
             let mut chars: Vec<char> = app.input_text.chars().collect();
             if app.input_cursor <= chars.len() {
