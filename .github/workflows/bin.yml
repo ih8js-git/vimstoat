@@ -3,8 +3,6 @@ name: Binaries Publisher
 run-name: Binaries Publisher | ${{ github.event_name }} by ${{ github.actor }} on '${{ github.ref_name }}'
 
 on:
-  release:
-    types: [published]
   push:
     tags:
       - "v*"
@@ -34,7 +32,6 @@ jobs:
             architecture: x86_64
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: false
 
           - os: macos-latest
             os-name: macos
@@ -42,7 +39,6 @@ jobs:
             architecture: arm64
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: false
 
           - os: ubuntu-latest
             os-name: linux
@@ -50,7 +46,6 @@ jobs:
             architecture: x86_64
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: false
 
           - os: ubuntu-latest
             os-name: linux
@@ -58,7 +53,6 @@ jobs:
             architecture: x86_64-musl
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: true
           
           - os: ubuntu-24.04-arm
             os-name: linux
@@ -66,7 +60,6 @@ jobs:
             architecture: arm64
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: false
 
           - os: ubuntu-24.04-arm
             os-name: linux
@@ -74,7 +67,6 @@ jobs:
             architecture: arm64-musl
             binary-postfix: ""
             binary-name: vimstoat
-            use-cross: true
 
           - os: windows-latest
             os-name: windows
@@ -82,7 +74,6 @@ jobs:
             architecture: x86_64
             binary-postfix: ".exe"
             binary-name: vimstoat
-            use-cross: false
 
           - os: windows-latest
             os-name: windows
@@ -90,11 +81,12 @@ jobs:
             architecture: arm64
             binary-postfix: ".exe"
             binary-name: vimstoat
-            use-cross: true
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -103,20 +95,13 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
-      - name: Install cross
-        if: matrix.use-cross
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cross
+      - name: Install musl-tools
+        if: matrix.os-name == 'linux' && contains(matrix.target, 'musl')
+        run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Cargo build
         shell: bash
-        run: |
-          if [ "${{ matrix.use-cross }}" = "true" ]; then
-            cross build --release --target ${{ matrix.target }}
-          else
-            cargo build --release --target ${{ matrix.target }}
-          fi
+        run: cargo build --release --target ${{ matrix.target }}
 
       - name: Packaging final binary
         shell: bash
@@ -124,7 +109,7 @@ jobs:
           cd target/${{ matrix.target }}/release
 
           BINARY_NAME="${{ matrix.binary-name }}${{ matrix.binary-postfix }}"
-          RELEASE_NAME="${{ matrix.binary-name }}-${{ github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}"
+          RELEASE_NAME="${{ matrix.binary-name }}-${{ inputs.tag || github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}"
 
           # Create archive with binary, README, and LICENSE
           cp ../../../README.md . 2>/dev/null || true

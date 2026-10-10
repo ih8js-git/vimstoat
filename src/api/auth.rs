@@ -51,6 +51,84 @@ impl Auth {
 mod tests {
     use super::*;
 
+    /// Reads the user's real session token from the keyring (read-only).
+    /// Panics if the keyring or a stored token is unavailable.
+    async fn real_token() -> String {
+        let auth = Auth::new().expect("keyring must be available to run auth tests");
+
+        let token = auth
+            .token_entry
+            .get_secret()
+            .await
+            .expect("a vimstoat session token must be stored in the keyring");
+
+        assert!(!token.is_empty(), "stored keyring token is empty");
+        token
+    }
+
+    /// Builds an `Auth` backed by a test-specific keyring entry.
+    /// Never touches the real vimstoat entry.
+    fn test_auth(id: &str) -> Auth {
+        Auth {
+            token_entry: KeyringEntry::try_new(id).expect("Failed to create test keyring entry"),
+        }
+    }
+
+    #[tokio::test]
+    async fn test_validate_token_accepts_real_token() {
+        let token = real_token().await;
+        let auth = Auth::new().unwrap();
+
+        let client = auth
+            .validate_token(&token, None)
+            .await
+            .expect("real keyring token should validate against the Stoat API");
+
+        // Not assert_eq!: on failure it would print the real token.
+        assert!(
+            client.clone_token() == token,
+            "validated client token does not match the keyring token"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_validate_token_rejects_invalid_token() {
+        let auth = test_auth("vimstoat_test_invalid_token");
+
+        // Not expect_err: it requires `ApiClient: Debug`, which is deliberately absent.
+        let Err(err) = auth
+            .validate_token("definitely_not_a_real_session_token", None)
+            .await
+        else {
+            panic!("bogus token should be rejected by the Stoat API");
+        };
+
+        assert!(
+            matches!(
+                err.downcast_ref::<AuthError>(),
+                Some(AuthError::InvalidToken(_))
+            ),
+            "unexpected error: {err:?}"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_real_token_works_with_authenticated_endpoint() {
+        let token = real_token().await;
+
+        let client = ApiClient::new(token, None);
+        let me = client
+            .get::<Value>(Endpoint::CurrentUser)
+            .await
+            .expect("GET /users/@me should succeed with the real token");
+
+        assert!(me.get("_id").is_some(), "no _id in response: {me}");
+        assert!(
+            me.get("username").is_some(),
+            "no username in response: {me}"
+        );
+    }
+
     #[tokio::test]
     async fn test_keyring_store_and_get() {
         // Use a test-specific ID so we don't overwrite the actual vimstoat token during tests
@@ -62,15 +140,9 @@ mod tests {
         let test_token = "test_secret_token_12345";
 
         // Test storing the token
-        let store_result = auth.store_token(test_token).await;
-        // The test might fail on CI or headless systems without a secret service, so we handle it gracefully
-        if let Err(e) = store_result {
-            println!(
-                "Skipping keyring test because the environment doesn't support it: {}",
-                e
-            );
-            return;
-        }
+        auth.store_token(test_token)
+            .await
+            .expect("keyring must be available to run auth tests");
 
         // Test getting the token
         let retrieved_token = auth
@@ -85,5 +157,28 @@ mod tests {
 
         // Clean up
         let _ = auth.token_entry.delete_secret().await;
+    }
+
+    #[tokio::test]
+    async fn test_keyring_store_overwrites_existing_token() {
+        let auth = test_auth("vimstoat_test_keyring_overwrite");
+
+        auth.store_token("first_token").await.unwrap();
+        auth.store_token("second_token").await.unwrap();
+
+        let retrieved = auth.token_entry.get_secret().await.unwrap();
+        assert_eq!(retrieved, "second_token");
+
+        let _ = auth.token_entry.delete_secret().await;
+    }
+
+    #[tokio::test]
+    async fn test_keyring_get_after_delete_fails() {
+        let auth = test_auth("vimstoat_test_keyring_delete");
+
+        auth.store_token("temp_token").await.unwrap();
+        auth.token_entry.delete_secret().await.unwrap();
+
+        assert!(auth.token_entry.get_secret().await.is_err());
     }
 }

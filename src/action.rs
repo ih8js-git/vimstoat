@@ -1,8 +1,7 @@
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum Action {
-    #[allow(unused)]
     GoToTopUI,
-    #[allow(unused)]
+    GoToBottomUI,
     AppendCharacter(char),
     RemoveCharacter,
     EnterCommandMode,
@@ -19,6 +18,5 @@ pub enum Action {
     CursorUp,
     CursorDown,
     Escape,
-    #[allow(unused)]
     Quit,
 }

@@ -125,6 +125,10 @@ impl Default for KeyMaps {
                 Action::GoToTopUI,
             ),
             (
+                vec![KeyEvent::new(KeyCode::Char('G'), KeyModifiers::SHIFT)],
+                Action::GoToBottomUI,
+            ),
+            (
                 vec![KeyEvent::new(KeyCode::Char('q'), KeyModifiers::NONE)],
                 Action::Quit,
             ),

@@ -157,6 +157,9 @@ pub fn handle(app: &mut App, key: KeyEvent) {
         Some(Action::GoToTopUI) => {
             app.selected_dm_index = 0;
         }
+        Some(Action::GoToBottomUI) => {
+            app.selected_dm_index = app.store.dm_channels.len().saturating_sub(1);
+        }
         Some(Action::Enter) if !app.store.dm_channels.is_empty() => {
             let channel_id = app.store.dm_channels[app.selected_dm_index].id.clone();
             let last_msg_id = app.store.dm_channels[app.selected_dm_index]
