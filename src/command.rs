@@ -17,8 +17,10 @@ impl Command {
         }
 
         let cmd = match trimmed {
-            "q" | "quit" | "q!" => Command::Quit,
-            "qa" | "qa!" | "qall" | "qall!" => Command::QuitAll,
+            "q" | "quit" | "q!" | "wq" | "wq!" => Command::Quit,
+            "qa" | "qa!" | "qall" | "qall!" | "wqa" | "wqa!" | "wqall" | "wqall!" => {
+                Command::QuitAll
+            }
             other => Command::Unknown(other.to_string()),
         };
 
