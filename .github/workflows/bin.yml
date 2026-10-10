@@ -3,8 +3,6 @@ name: Binaries Publisher
 run-name: Binaries Publisher | ${{ github.event_name }} by ${{ github.actor }} on '${{ github.ref_name }}'
 
 on:
-  release:
-    types: [published]
   push:
     tags:
       - "v*"
@@ -87,6 +85,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
@@ -96,7 +96,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
 
       - name: Install musl-tools
-        if: matrix.os-name == 'linux' && contains(matrix.target, 'musl') && !matrix.use-cross
+        if: matrix.os-name == 'linux' && contains(matrix.target, 'musl')
         run: sudo apt-get update && sudo apt-get install -y musl-tools
 
       - name: Cargo build
@@ -109,7 +109,7 @@ jobs:
           cd target/${{ matrix.target }}/release
 
           BINARY_NAME="${{ matrix.binary-name }}${{ matrix.binary-postfix }}"
-          RELEASE_NAME="${{ matrix.binary-name }}-${{ github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}"
+          RELEASE_NAME="${{ matrix.binary-name }}-${{ inputs.tag || github.ref_name }}-${{ matrix.os-name }}-${{ matrix.architecture }}"
 
           # Create archive with binary, README, and LICENSE
           cp ../../../README.md . 2>/dev/null || true
