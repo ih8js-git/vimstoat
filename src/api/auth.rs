@@ -84,17 +84,24 @@ mod tests {
             .await
             .expect("real keyring token should validate against the Stoat API");
 
-        assert_eq!(client.clone_token(), token);
+        // Not assert_eq!: on failure it would print the real token.
+        assert!(
+            client.clone_token() == token,
+            "validated client token does not match the keyring token"
+        );
     }
 
     #[tokio::test]
     async fn test_validate_token_rejects_invalid_token() {
         let auth = test_auth("vimstoat_test_invalid_token");
 
-        let err = auth
+        // Not expect_err: it requires `ApiClient: Debug`, which is deliberately absent.
+        let Err(err) = auth
             .validate_token("definitely_not_a_real_session_token", None)
             .await
-            .expect_err("bogus token should be rejected by the Stoat API");
+        else {
+            panic!("bogus token should be rejected by the Stoat API");
+        };
 
         assert!(
             matches!(

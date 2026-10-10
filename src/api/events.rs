@@ -1,7 +1,11 @@
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-#[derive(Debug, Clone, Serialize)]
+// SECURITY: intentionally does NOT implement `Debug`. `Authenticate` carries the
+// user's session token, and a `{:?}`, `dbg!`, or derived `Debug` would write it to
+// the log file or terminal. Do not add `Debug` here (or derive it on any type that
+// contains a `ClientEvent`) unless the token is redacted.
+#[derive(Clone, Serialize)]
 #[serde(tag = "type")]
 #[allow(unused)]
 pub enum ClientEvent {

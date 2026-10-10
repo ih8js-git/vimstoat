@@ -44,7 +44,11 @@ impl Endpoint {
     }
 }
 
-#[derive(Debug, Clone)]
+// SECURITY: intentionally does NOT implement `Debug`. This type holds the user's
+// session token, and a `{:?}`, `dbg!`, or derived `Debug` on a parent struct would
+// write it to the log file or terminal. Do not add `Debug` here (or derive it on any
+// type that contains an `ApiClient`) unless the token is redacted.
+#[derive(Clone)]
 pub struct ApiClient {
     client: Client,
     token: String,
