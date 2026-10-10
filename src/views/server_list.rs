@@ -149,6 +149,9 @@ pub fn handle(app: &mut App, key: KeyEvent) {
         Some(Action::GoToTopUI) => {
             app.selected_index = 0;
         }
+        Some(Action::GoToBottomUI) => {
+            app.selected_index = app.store.servers.len();
+        }
         _ => {}
     }
 }

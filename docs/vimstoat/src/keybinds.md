@@ -13,6 +13,7 @@ Keys marked **(Planned)** are not implemented yet.
 | `k` / `↑` | Move up (in lists, or up a line in the message box)             |
 | `l` / `→` | Move right (in the message box)                                 |
 | `gg`      | Go to the top of the list (server list and DM list only)        |
+| `G`       | Go to the bottom of the list (server list and DM list only)     |
 | `Enter`   | Open the selected item in a list; send the message in a conversation |
 
 ## Mode Switching

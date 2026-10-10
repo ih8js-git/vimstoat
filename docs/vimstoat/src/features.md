@@ -12,7 +12,7 @@ VimStoat is currently in early development. Here are the features implemented so
 ## Server List
 - **Landing screen**: After logging in you see the server list. The first row is always **Direct Messages**; the servers you are a member of follow it.
 - **Relative line numbers**: Like Vim's `relativenumber`, the selected row shows its own index and every other row shows its distance from the selection.
-- **Navigation**: `j`/`k` (or the arrow keys) move the selection, `gg` jumps to the top, and `Enter` opens the selected item.
+- **Navigation**: `j`/`k` (or the arrow keys) move the selection, `gg` jumps to the top, `G` jumps to the bottom, and `Enter` opens the selected item.
 - **Servers are not browsable yet**: Servers are listed, but opening one does nothing. Server channels are **Planned**.
 
 ## Direct Messages
