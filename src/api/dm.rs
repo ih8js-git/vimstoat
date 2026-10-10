@@ -218,7 +218,10 @@ pub async fn fetch_dms(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::{auth::Auth, user::fetch_current_user};
+    use crate::{
+        api::user::fetch_current_user,
+        test_helpers::{json_str, keyring_client},
+    };
     use serde_json::Value;
     use std::collections::HashMap;
     use tokio::sync::OnceCell;
@@ -234,20 +237,9 @@ mod tests {
 
     static LIVE: OnceCell<Live> = OnceCell::const_new();
 
-    async fn real_client() -> ApiClient {
-        let auth = Auth::new().expect("keyring must be available to run dm tests");
-        let token = auth
-            .token_entry
-            .get_secret()
-            .await
-            .expect("a vimstoat session token must be stored in the keyring");
-
-        ApiClient::new(token, None)
-    }
-
     async fn live() -> &'static Live {
         LIVE.get_or_init(|| async {
-            let client = real_client().await;
+            let client = keyring_client("dm").await;
             let my_id = fetch_current_user(&client)
                 .await
                 .expect("GET /users/@me should succeed with the real token")
@@ -271,18 +263,12 @@ mod tests {
         .await
     }
 
-    fn str_field<'a>(obj: &'a Value, key: &str) -> &'a str {
-        obj.get(key)
-            .and_then(Value::as_str)
-            .unwrap_or_else(|| panic!("`{key}` is missing or not a string"))
-    }
-
     fn channel_type(raw: &Value) -> &str {
-        str_field(raw, "channel_type")
+        json_str(raw, "channel_type")
     }
 
     fn parsed<'a>(live: &'a Live, raw: &Value) -> &'a DirectMessageChannel {
-        let id = str_field(raw, "_id");
+        let id = json_str(raw, "_id");
         live.dms
             .iter()
             .find(|dm| dm.id == id)
@@ -311,7 +297,7 @@ mod tests {
     async fn test_fetch_dms_returns_every_channel_once() {
         let live = live().await;
 
-        let mut raw_ids: Vec<&str> = live.raw_dms.iter().map(|c| str_field(c, "_id")).collect();
+        let mut raw_ids: Vec<&str> = live.raw_dms.iter().map(|c| json_str(c, "_id")).collect();
         let mut parsed_ids: Vec<&str> = live.dms.iter().map(|dm| dm.id.as_str()).collect();
         raw_ids.sort_unstable();
         parsed_ids.sort_unstable();
@@ -376,7 +362,7 @@ mod tests {
         let live = live().await;
 
         for raw in live.raw_dms.iter().filter(|c| channel_type(c) == "Group") {
-            assert_eq!(parsed(live, raw).name, str_field(raw, "name"));
+            assert_eq!(parsed(live, raw).name, json_str(raw, "name"));
         }
     }
 
@@ -437,8 +423,8 @@ mod tests {
         // shape drifts, every DM silently shows as unread.
         for unread in &unreads {
             let key = unread.get("_id").expect("unread has no `_id`");
-            str_field(key, "channel");
-            assert_eq!(str_field(key, "user"), live.my_id);
+            json_str(key, "channel");
+            assert_eq!(json_str(key, "user"), live.my_id);
         }
     }
 
@@ -448,7 +434,7 @@ mod tests {
         let unreads = fetch_unreads(&live.client).await.unwrap();
         let by_channel: HashMap<&str, &Value> = unreads
             .iter()
-            .map(|u| (str_field(&u["_id"], "channel"), u))
+            .map(|u| (json_str(&u["_id"], "channel"), u))
             .collect();
 
         for dm in &live.dms {

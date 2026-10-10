@@ -50,21 +50,7 @@ impl Auth {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    /// Reads the user's real session token from the keyring (read-only).
-    /// Panics if the keyring or a stored token is unavailable.
-    async fn real_token() -> String {
-        let auth = Auth::new().expect("keyring must be available to run auth tests");
-
-        let token = auth
-            .token_entry
-            .get_secret()
-            .await
-            .expect("a vimstoat session token must be stored in the keyring");
-
-        assert!(!token.is_empty(), "stored keyring token is empty");
-        token
-    }
+    use crate::test_helpers::keyring_token;
 
     /// Builds an `Auth` backed by a test-specific keyring entry.
     /// Never touches the real vimstoat entry.
@@ -76,7 +62,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_validate_token_accepts_real_token() {
-        let token = real_token().await;
+        let token = keyring_token("auth").await;
         let auth = Auth::new().unwrap();
 
         let client = auth
@@ -114,7 +100,7 @@ mod tests {
 
     #[tokio::test]
     async fn test_real_token_works_with_authenticated_endpoint() {
-        let token = real_token().await;
+        let token = keyring_token("auth").await;
 
         let client = ApiClient::new(token, None);
         let me = client

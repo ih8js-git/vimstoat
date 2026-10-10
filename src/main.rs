@@ -7,6 +7,8 @@ mod input;
 mod logger;
 mod models;
 mod notification;
+#[cfg(test)]
+mod test_helpers;
 mod views;
 
 use app::App;

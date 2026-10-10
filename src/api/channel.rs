@@ -62,7 +62,7 @@ pub async fn ack_message(api_client: &ApiClient, channel_id: &str, message_id: &
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::api::auth::Auth;
+    use crate::test_helpers::{json_str, keyring_client};
     use serde_json::Value;
     use tokio::sync::OnceCell;
 
@@ -78,20 +78,9 @@ mod tests {
 
     static LIVE: OnceCell<Live> = OnceCell::const_new();
 
-    async fn real_client() -> ApiClient {
-        let auth = Auth::new().expect("keyring must be available to run channel tests");
-        let token = auth
-            .token_entry
-            .get_secret()
-            .await
-            .expect("a vimstoat session token must be stored in the keyring");
-
-        ApiClient::new(token, None)
-    }
-
     async fn live() -> &'static Live {
         LIVE.get_or_init(|| async {
-            let client = real_client().await;
+            let client = keyring_client("channel").await;
             let dms = client
                 .get::<Vec<Value>>(Endpoint::Dms)
                 .await
@@ -109,7 +98,7 @@ mod tests {
                 else {
                     continue;
                 };
-                let channel_id = str_field(dm, "_id").to_string();
+                let channel_id = json_str(dm, "_id").to_string();
                 let latest = fetch_message_history(&client, &channel_id, Some(&query))
                     .await
                     .expect("fetching history of a real DM should succeed");
@@ -138,14 +127,8 @@ mod tests {
         }
     }
 
-    fn str_field<'a>(obj: &'a Value, key: &str) -> &'a str {
-        obj.get(key)
-            .and_then(Value::as_str)
-            .unwrap_or_else(|| panic!("`{key}` is missing or not a string"))
-    }
-
     fn ids(messages: &[Value]) -> Vec<&str> {
-        messages.iter().map(|m| str_field(m, "_id")).collect()
+        messages.iter().map(|m| json_str(m, "_id")).collect()
     }
 
     #[tokio::test]
@@ -166,12 +149,12 @@ mod tests {
         let live = live().await;
 
         for msg in &live.latest {
-            assert_eq!(str_field(msg, "channel"), live.channel_id);
-            assert!(!str_field(msg, "author").is_empty(), "`author` is empty");
+            assert_eq!(json_str(msg, "channel"), live.channel_id);
+            assert!(!json_str(msg, "author").is_empty(), "`author` is empty");
             assert!(
                 msg.get("content").is_some_and(Value::is_string) || msg.get("system").is_some(),
                 "message {} has neither `content` nor `system`",
-                str_field(msg, "_id")
+                json_str(msg, "_id")
             );
         }
     }
@@ -194,7 +177,7 @@ mod tests {
     #[tokio::test]
     async fn test_before_pages_backwards() {
         let live = live().await;
-        let pivot = str_field(&live.latest[1], "_id");
+        let pivot = json_str(&live.latest[1], "_id");
         let q = MessageHistoryQuery {
             limit: Some(2),
             before: Some(pivot.to_string()),
@@ -211,7 +194,7 @@ mod tests {
     #[tokio::test]
     async fn test_after_with_oldest_sort_pages_forwards() {
         let live = live().await;
-        let pivot = str_field(&live.latest[3], "_id");
+        let pivot = json_str(&live.latest[3], "_id");
         let q = MessageHistoryQuery {
             limit: Some(2),
             after: Some(pivot.to_string()),
@@ -230,7 +213,7 @@ mod tests {
     #[tokio::test]
     async fn test_nearby_includes_target_message() {
         let live = live().await;
-        let target = str_field(&live.latest[2], "_id");
+        let target = json_str(&live.latest[2], "_id");
         let q = MessageHistoryQuery {
             limit: Some(3),
             nearby: Some(target.to_string()),
@@ -274,7 +257,7 @@ mod tests {
         let unreads_of = |unreads: &[Value]| -> Option<Value> {
             unreads
                 .iter()
-                .find(|u| str_field(&u["_id"], "channel") == live.channel_id)
+                .find(|u| json_str(&u["_id"], "channel") == live.channel_id)
                 .cloned()
         };
 
