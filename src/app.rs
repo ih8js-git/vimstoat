@@ -10,13 +10,13 @@ use tokio::time;
 use crate::{
     Result,
     api::{
-        API_BASE_URL,
         auth::Auth,
         client::ApiClient,
         events::{ClientEvent, ServerEvent},
         ws::WsClient,
     },
     cache::{CacheStore, Id},
+    config::Config,
     input::{InputMode, InputState},
     models::{DirectMessageChannel, Server},
 };
@@ -84,6 +84,7 @@ pub struct App {
     pub should_quit: bool,
     pub input_state: InputState,
     pub api_base_url: String,
+    pub config_warning: Option<String>,
     pub api_client: ApiClient,
     pub ws_client: WsClient,
     pub ws_rx: Receiver<ServerEvent>,
@@ -98,22 +99,18 @@ pub struct App {
 }
 
 impl App {
-    pub async fn new() -> Result<Self> {
-        let api_base_url = std::env::var("API_BASE_URL").ok();
-        let ws_base_url = std::env::var("WS_BASE_URL").ok();
-        Self::new_with_urls(api_base_url, ws_base_url).await
-    }
+    pub async fn new(config: Config, config_warning: Option<String>) -> Result<Self> {
+        let api_base_url = config.instance.url;
 
-    pub async fn new_with_urls(
-        api_base_url: Option<String>,
-        ws_base_url: Option<String>,
-    ) -> Result<Self> {
         let auth = Auth::new().map_err(|e| anyhow::anyhow!(e))?;
 
-        let mut api_client = ApiClient::new(String::new(), api_base_url.clone());
+        let mut api_client = ApiClient::new(String::new(), Some(api_base_url.clone()));
 
         let state = if let Ok(token) = auth.token_entry.get_secret().await {
-            match auth.validate_token(&token, api_base_url.clone()).await {
+            match auth
+                .validate_token(&token, Some(api_base_url.clone()))
+                .await
+            {
                 Ok(authenticated_client) => {
                     api_client = authenticated_client;
                     AppState::LoggedIn
@@ -124,7 +121,7 @@ impl App {
             AppState::NeedsAuth
         };
 
-        let (ws_client, ws_rx) = WsClient::connect(ws_base_url).await?;
+        let (ws_client, ws_rx) = WsClient::connect(Some(config.instance.ws_url)).await?;
 
         let cache = Arc::new(Mutex::new(CacheStore::new()?));
         let (app_tx, app_rx) = mpsc::channel::<AppEvent>(32);
@@ -137,7 +134,8 @@ impl App {
             command_text: String::new(),
             auth,
             should_quit: false,
-            api_base_url: api_base_url.unwrap_or(API_BASE_URL.to_string()),
+            api_base_url,
+            config_warning,
             api_client,
             ws_client,
             ws_rx,
@@ -290,6 +288,10 @@ impl App {
     }
 
     pub async fn handle_key_event(&mut self, key: KeyEvent) -> Result<()> {
+        if self.config_warning.take().is_some() {
+            return Ok(());
+        }
+
         if matches!(self.input_state.input_mode, InputMode::Command) {
             crate::views::command::handle(self, key);
             return Ok(());
@@ -563,7 +565,10 @@ impl App {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Message, User};
+    use crate::{
+        api::API_BASE_URL,
+        models::{Message, User},
+    };
     use serde_json::Value;
     use std::collections::HashMap;
     use tempfile::TempDir;
@@ -693,6 +698,7 @@ mod tests {
             should_quit: false,
             input_state: InputState::default(),
             api_base_url: API_BASE_URL.to_string(),
+            config_warning: None,
             api_client: ApiClient::new(live.token.clone(), None),
             ws_client,
             ws_rx,

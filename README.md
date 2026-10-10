@@ -28,7 +28,12 @@ VimStoat connects to `https://api.stoat.chat` by default. For self-hosted instan
 ```toml
 [instance]
 url = "https://api.your-instance.com"
+ws_url = "wss://events.your-instance.com"
 ```
+
+A default config file is generated on first run. Missing keys fall back to their defaults. If the file is invalid, VimStoat shows a warning and uses the defaults without modifying the file.
+
+The `API_BASE_URL` and `WS_BASE_URL` environment variables are no longer supported; set these values in the config file instead.
 
 ## License
 
