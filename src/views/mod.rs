@@ -67,6 +67,10 @@ pub fn render(f: &mut Frame, app: &App) {
         AppState::Error(message) => error::render(f, &message.to_string()),
     }
 
+    if let Some(warning) = &app.config_warning {
+        error::render_config_warning(f, warning);
+    }
+
     if let Some(cmd_area) = command_area {
         let cmd_widget = Paragraph::new(format!(":{}", app.command_text))
             .style(

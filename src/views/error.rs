@@ -1,8 +1,9 @@
 use ratatui::{
     Frame,
     crossterm::event::{KeyCode, KeyEvent},
+    layout::Constraint,
     style::{Color, Style},
-    widgets::{Block, Borders, Paragraph},
+    widgets::{Block, Borders, Clear, Paragraph, Wrap},
 };
 use thiserror::Error;
 
@@ -50,6 +51,24 @@ impl From<keyring::Error> for AuthError {
     }
 }
 
+#[derive(Error, Debug)]
+pub enum ConfigError {
+    #[error("Could not read config file: {0}")]
+    Read(std::io::Error),
+
+    #[error("Could not write default config file: {0}")]
+    Write(std::io::Error),
+
+    #[error("Could not parse config file: {0}")]
+    Parse(toml::de::Error),
+
+    #[error("Invalid config: {0}")]
+    Invalid(String),
+
+    #[error("Could not determine the config directory")]
+    NoConfigDir,
+}
+
 pub fn handle(app: &mut App, key: KeyEvent) {
     if matches!(key.code, KeyCode::Char(_) | KeyCode::Esc | KeyCode::Enter) {
         app.state = AppState::NeedsAuth;
@@ -72,6 +91,23 @@ pub fn render(f: &mut Frame, message: &str) {
         .style(Style::default().fg(Color::Red))
         .block(Block::default().title(title).borders(Borders::ALL));
     f.render_widget(error_msg, f.area());
+}
+
+pub fn render_config_warning(f: &mut Frame, warning: &str) {
+    let area = f
+        .area()
+        .centered(Constraint::Percentage(70), Constraint::Percentage(50));
+
+    let text = format!("{warning}\n\nUsing default settings. Press any key to dismiss.");
+    let popup = Paragraph::new(text).wrap(Wrap { trim: false }).block(
+        Block::default()
+            .title(" Config Warning ")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)),
+    );
+
+    f.render_widget(Clear, area);
+    f.render_widget(popup, area);
 }
 
 #[cfg(test)]

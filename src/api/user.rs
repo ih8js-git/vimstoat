@@ -75,7 +75,10 @@ pub async fn fetch_current_user(api_client: &ApiClient) -> Result<User> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{api::auth::Auth, cache::Id};
+    use crate::{
+        cache::Id,
+        test_helpers::{json_str, keyring_client},
+    };
     use serde_json::Value;
     use tokio::sync::OnceCell;
 
@@ -84,22 +87,11 @@ mod tests {
 
     static REAL_ME: OnceCell<Value> = OnceCell::const_new();
 
-    async fn real_client() -> ApiClient {
-        let auth = Auth::new().expect("keyring must be available to run user tests");
-        let token = auth
-            .token_entry
-            .get_secret()
-            .await
-            .expect("a vimstoat session token must be stored in the keyring");
-
-        ApiClient::new(token, None)
-    }
-
     /// The real `/users/@me` payload, fetched once per test run.
     async fn real_me() -> &'static Value {
         REAL_ME
             .get_or_init(|| async {
-                real_client()
+                keyring_client("user")
                     .await
                     .get::<Value>(Endpoint::CurrentUser)
                     .await
@@ -113,12 +105,6 @@ mod tests {
             .unwrap_or_else(|| panic!("missing field `{key}`"))
     }
 
-    fn str_field<'a>(obj: &'a Value, key: &str) -> &'a str {
-        field(obj, key)
-            .as_str()
-            .unwrap_or_else(|| panic!("`{key}` is not a string"))
-    }
-
     /// An optional key's value, treating absent and `null` the same.
     fn optional<'a>(obj: &'a Value, key: &str) -> Option<&'a Value> {
         obj.get(key).filter(|v| !v.is_null())
@@ -130,13 +116,13 @@ mod tests {
 
         let user = parse_user(me).expect("real /users/@me payload should parse");
 
-        assert_eq!(user.id, str_field(me, "_id"));
-        assert_eq!(user.username, str_field(me, "username"));
+        assert_eq!(user.id, json_str(me, "_id"));
+        assert_eq!(user.username, json_str(me, "username"));
     }
 
     #[tokio::test]
     async fn test_fetch_user_wrappers_agree() {
-        let client = real_client().await;
+        let client = keyring_client("user").await;
 
         let current = fetch_current_user(&client).await.unwrap();
         let by_id = fetch_user(&client, &current.id).await.unwrap();
@@ -150,17 +136,17 @@ mod tests {
         let me = real_me().await;
 
         assert!(
-            Id::<User>::new(str_field(me, "_id")).is_ok(),
+            Id::<User>::new(json_str(me, "_id")).is_ok(),
             "`_id` is not a valid id"
         );
-        assert!(!str_field(me, "username").is_empty(), "`username` is empty");
+        assert!(!json_str(me, "username").is_empty(), "`username` is empty");
 
-        let discriminator = str_field(me, "discriminator");
+        let discriminator = json_str(me, "discriminator");
         assert!(
             discriminator.len() == 4 && discriminator.chars().all(|c| c.is_ascii_digit()),
             "`discriminator` is not 4 digits"
         );
-        assert_eq!(str_field(me, "relationship"), "User");
+        assert_eq!(json_str(me, "relationship"), "User");
     }
 
     #[tokio::test]
@@ -197,16 +183,13 @@ mod tests {
         };
 
         for key in ["_id", "tag", "filename", "content_type"] {
-            assert!(
-                !str_field(avatar, key).is_empty(),
-                "`avatar.{key}` is empty"
-            );
+            assert!(!json_str(avatar, key).is_empty(), "`avatar.{key}` is empty");
         }
         assert!(
             field(avatar, "size").is_u64(),
             "`avatar.size` is not a number"
         );
-        str_field(field(avatar, "metadata"), "type");
+        json_str(field(avatar, "metadata"), "type");
     }
 
     #[tokio::test]
@@ -220,11 +203,11 @@ mod tests {
 
         for relation in relations {
             assert!(
-                Id::<User>::new(str_field(relation, "_id")).is_ok(),
+                Id::<User>::new(json_str(relation, "_id")).is_ok(),
                 "`relations[]._id` is not a valid id"
             );
             assert!(
-                !str_field(relation, "status").is_empty(),
+                !json_str(relation, "status").is_empty(),
                 "`relations[].status` is empty"
             );
         }

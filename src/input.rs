@@ -134,9 +134,22 @@ impl Default for KeyMaps {
             ),
         ]);
 
+        let mut normal_maps = ui_maps.clone();
+        normal_maps.insert(
+            vec![KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE)],
+            Action::Paste,
+        );
+        normal_maps.insert(
+            vec![
+                KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+            ],
+            Action::YankLine,
+        );
+
         Self {
-            ui: ui_maps.clone(),
-            normal: ui_maps,
+            ui: ui_maps,
+            normal: normal_maps,
             visual: HashMap::new(),
             typing: HashMap::from([
                 (

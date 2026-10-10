@@ -12,6 +12,8 @@ pub enum Action {
     OpenNewLineBelow,
     OpenNewLineAbove,
     DeleteLine,
+    YankLine,
+    Paste,
     Enter,
     CursorLeft,
     CursorRight,

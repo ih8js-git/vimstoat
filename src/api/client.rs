@@ -1,8 +1,15 @@
+use std::time::Duration;
+
 use anyhow::{Result, anyhow};
-use reqwest::Client;
+use reqwest::{Client, RequestBuilder, Response, StatusCode};
 use serde::de::DeserializeOwned;
 
 use crate::api::API_BASE_URL;
+
+/// How many times a rate-limited request is retried in test builds.
+const TEST_RATE_LIMIT_RETRIES: usize = 3;
+/// Wait used when a 429 response carries no `retry_after`.
+const DEFAULT_RETRY_AFTER_MS: u64 = 1000;
 
 #[derive(Debug)]
 #[allow(unused)]
@@ -70,10 +77,7 @@ impl ApiClient {
         let url = format!("{}{}", self.base_url, endpoint.path());
 
         let response = self
-            .client
-            .get(&url)
-            .header("X-Session-Token", &self.token)
-            .send()
+            .send(|| self.client.get(&url).header("X-Session-Token", &self.token))
             .await?;
 
         if response.status().is_success() {
@@ -96,11 +100,12 @@ impl ApiClient {
         let url = format!("{}{}", self.base_url, endpoint.path());
 
         let response = self
-            .client
-            .post(&url)
-            .header("X-Session-Token", &self.token)
-            .json(body)
-            .send()
+            .send(|| {
+                self.client
+                    .post(&url)
+                    .header("X-Session-Token", &self.token)
+                    .json(body)
+            })
             .await?;
 
         if response.status().is_success() {
@@ -119,10 +124,7 @@ impl ApiClient {
         let url = format!("{}{}", self.base_url, endpoint.path());
 
         let response = self
-            .client
-            .put(&url)
-            .header("X-Session-Token", &self.token)
-            .send()
+            .send(|| self.client.put(&url).header("X-Session-Token", &self.token))
             .await?;
 
         if response.status().is_success() {
@@ -134,6 +136,31 @@ impl ApiClient {
                 "API PUT request to {endpoint:?} failed: {status} - {text}"
             ))
         }
+    }
+
+    /// Sends the request produced by `build`. In test builds, a 429 is retried
+    /// after the server's `retry_after` delay so live tests wait out the rate
+    /// limit instead of failing; the last attempt's response is returned as-is.
+    async fn send(&self, build: impl Fn() -> RequestBuilder) -> reqwest::Result<Response> {
+        if cfg!(test) {
+            for _ in 0..TEST_RATE_LIMIT_RETRIES {
+                let response = build().send().await?;
+                if response.status() != StatusCode::TOO_MANY_REQUESTS {
+                    return Ok(response);
+                }
+
+                let body = response
+                    .json::<serde_json::Value>()
+                    .await
+                    .unwrap_or_default();
+                let wait_ms = body["retry_after"]
+                    .as_u64()
+                    .unwrap_or(DEFAULT_RETRY_AFTER_MS);
+                tokio::time::sleep(Duration::from_millis(wait_ms)).await;
+            }
+        }
+
+        build().send().await
     }
 
     pub fn clone_token(&self) -> String {

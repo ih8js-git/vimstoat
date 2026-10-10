@@ -35,7 +35,9 @@ Keys marked **(Planned)** are not implemented yet.
 
 | Key  | Action                                                                                       |
 | ---- | -------------------------------------------------------------------------------------------- |
-| `dd` | Delete the current line of the message. The line is saved to the yank buffer (`p` to paste it back is **Planned**). |
+| `dd` | Delete the current line of the message. The line is saved to the yank buffer. |
+| `yy` | Copy the current line of the message to the yank buffer.                                     |
+| `p`  | Paste the yank buffer as a new line below the current line.                                  |
 
 ## Insert Mode
 
@@ -61,10 +63,12 @@ Keys marked **(Planned)** are not implemented yet.
 
 Press `:` to enter Command mode, type a command, then press `Enter`. `Esc` cancels and `Backspace` edits the command.
 
-| Command                              | Action                                                      |
-| ------------------------------------ | ----------------------------------------------------------- |
-| `:q`, `:quit`, `:q!`                 | Go back to the previous screen, or quit if at the top level |
-| `:qa`, `:qall`, `:qa!`, `:qall!`     | Quit the application immediately                            |
+| Command                                                                | Action                                                      |
+| ---------------------------------------------------------------------- | ----------------------------------------------------------- |
+| `:q`, `:quit`, `:q!`, `:wq`, `:wq!`                                    | Go back to the previous screen, or quit if at the top level |
+| `:qa`, `:qall`, `:qa!`, `:qall!`, `:wqa`, `:wqall`, `:wqa!`, `:wqall!` | Quit the application immediately                            |
+
+`:wq` and `:wqa` are aliases for `:q` and `:qa`, so Vim muscle memory works. There is nothing to write, so they behave exactly like their quit counterparts.
 
 Unknown commands are ignored (a warning is written to the log file).
 
