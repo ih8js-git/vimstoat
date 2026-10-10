@@ -78,7 +78,7 @@ What you see in the UI is the live state built from the server and the real-time
 ## Vim-Native Interface
 - **Mode-Specific UI Themes**: Border colors dynamically shift based on the current mode (Blue for UI/Normal, Yellow for Insert, Green for Command).
 - **Cursor Shaping**: Hardware cursor shape changes depending on mode (blinking bar in Insert and Command mode, block otherwise).
-- **Input Motions**: Features vim-like text composition motions like `i`, `I`, `a`, `A`, `o`, `O`, and `dd` (delete line) and `p` (paste), with an in-memory yank buffer.
+- **Input Motions**: Features vim-like text composition motions like `i`, `I`, `a`, `A`, `o`, `O`, and `dd` (delete line), `yy` (yank line) and `p` (paste), with an in-memory yank buffer.
 - **Multi-line messages**: `Shift+Enter` or `Alt+Enter` inserts a newline; `Enter` sends.
 - **Screen Navigation**: `:q` goes back one screen at a time, `q` goes back from a conversation, and `:qa` quits globally. See [Keybinds](./keybinds.md).
 

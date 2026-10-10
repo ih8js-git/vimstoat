@@ -439,6 +439,27 @@ pub fn handle(app: &mut App, key: KeyEvent) {
                 }
             }
         }
+        Some(Action::YankLine) => {
+            let chars: Vec<char> = app.input_text.chars().collect();
+            let mut line_start = 0;
+            for i in (0..app.input_cursor).rev() {
+                if chars.get(i) == Some(&'\n') {
+                    line_start = i + 1;
+                    break;
+                }
+            }
+
+            let mut line_end = chars.len();
+            for (i, c) in chars.iter().enumerate().skip(app.input_cursor) {
+                if *c == '\n' {
+                    line_end = i;
+                    break;
+                }
+            }
+
+            let yank_content: String = chars[line_start..line_end].iter().collect();
+            app.yank_buffer = Some(format!("{yank_content}\n"));
+        }
         Some(Action::Paste) => {
             if let Some(yanked) = app.yank_buffer.clone() {
                 let mut chars: Vec<char> = app.input_text.chars().collect();

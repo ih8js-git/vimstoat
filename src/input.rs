@@ -139,6 +139,13 @@ impl Default for KeyMaps {
             vec![KeyEvent::new(KeyCode::Char('p'), KeyModifiers::NONE)],
             Action::Paste,
         );
+        normal_maps.insert(
+            vec![
+                KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+                KeyEvent::new(KeyCode::Char('y'), KeyModifiers::NONE),
+            ],
+            Action::YankLine,
+        );
 
         Self {
             ui: ui_maps,
