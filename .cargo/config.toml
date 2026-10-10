@@ -1,0 +1,4 @@
+[env]
+# Live tests share one account's API rate limit, so run tests one at a time.
+# An explicitly set RUST_TEST_THREADS still takes precedence.
+RUST_TEST_THREADS = "1"
