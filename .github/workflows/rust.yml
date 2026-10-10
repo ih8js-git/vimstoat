@@ -60,7 +60,7 @@ jobs:
       - name: Install Keyring & D-Bus dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y gnome-keyring dbus dbus-x11
+          sudo apt-get install -y gnome-keyring dbus dbus-x11 libsecret-tools
 
       - name: Run Tests with Keyring
         env:
@@ -70,6 +70,9 @@ jobs:
             set -e
             echo -n "ci-keyring-pwd" | gnome-keyring-daemon --components=secrets --unlock &
             sleep 1
+            test -n "$STOAT_TEST_TOKEN" || { echo "STOAT_TEST_TOKEN secret is not set"; exit 1; }
+            printf "%s" "$STOAT_TEST_TOKEN" | secret-tool store --label=vimstoat \
+              service keyring-lib username vimstoat target default application rust-keyring
             cargo test
           '
 
