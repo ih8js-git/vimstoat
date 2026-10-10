@@ -57,8 +57,21 @@ jobs:
       - name: Lint with Clippy
         run: cargo clippy -- -D warnings
 
-      - name: Run Tests
-        run: cargo test
+      - name: Install Keyring & D-Bus dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnome-keyring dbus dbus-x11
+
+      - name: Run Tests with Keyring
+        env:
+          STOAT_TEST_TOKEN: ${{ secrets.STOAT_TEST_TOKEN }}
+        run: |
+          dbus-run-session -- bash -c '
+            set -e
+            echo -n "ci-keyring-pwd" | gnome-keyring-daemon --components=secrets --unlock &
+            sleep 1
+            cargo test
+          '
 
   publish-cargo:
     name: Publishing to Cargo
